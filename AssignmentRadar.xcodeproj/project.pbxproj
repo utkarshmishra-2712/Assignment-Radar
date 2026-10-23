@@ -6,14 +6,73 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4347D730308C099F00359B18 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4347D72F308C099F00359B18 /* WidgetKit.framework */; };
+		4347D732308C099F00359B18 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4347D731308C099F00359B18 /* SwiftUI.framework */; };
+		4347D73F308C09A100359B18 /* AssignmentRadarWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4347D72D308C099F00359B18 /* AssignmentRadarWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4347D73D308C09A100359B18 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4347D6DC308B9B4600359B18 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4347D72C308C099F00359B18;
+			remoteInfo = AssignmentRadarWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4347D744308C09A100359B18 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				4347D73F308C09A100359B18 /* AssignmentRadarWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		4347D6E4308B9B4600359B18 /* AssignmentRadar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssignmentRadar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4347D72D308C099F00359B18 /* AssignmentRadarWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AssignmentRadarWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4347D72F308C099F00359B18 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		4347D731308C099F00359B18 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4347D718308BD60C00359B18 /* Exceptions for "AssignmentRadar" folder in "AssignmentRadar" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4347D6E3308B9B4600359B18 /* AssignmentRadar */;
+		};
+		4347D743308C09A100359B18 /* Exceptions for "AssignmentRadarWidget" folder in "AssignmentRadarWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4347D72C308C099F00359B18 /* AssignmentRadarWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4347D6E6308B9B4600359B18 /* AssignmentRadar */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4347D718308BD60C00359B18 /* Exceptions for "AssignmentRadar" folder in "AssignmentRadar" target */,
+			);
 			path = AssignmentRadar;
+			sourceTree = "<group>";
+		};
+		4347D733308C099F00359B18 /* AssignmentRadarWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4347D743308C09A100359B18 /* Exceptions for "AssignmentRadarWidget" folder in "AssignmentRadarWidgetExtension" target */,
+			);
+			path = AssignmentRadarWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -24,6 +83,13 @@
 			files = (
 			);
 		};
+		4347D72A308C099F00359B18 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				4347D732308C099F00359B18 /* SwiftUI.framework in Frameworks */,
+				4347D730308C099F00359B18 /* WidgetKit.framework in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -31,6 +97,8 @@
 			isa = PBXGroup;
 			children = (
 				4347D6E6308B9B4600359B18 /* AssignmentRadar */,
+				4347D733308C099F00359B18 /* AssignmentRadarWidget */,
+				4347D72E308C099F00359B18 /* Frameworks */,
 				4347D6E5308B9B4600359B18 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,8 +107,18 @@
 			isa = PBXGroup;
 			children = (
 				4347D6E4308B9B4600359B18 /* AssignmentRadar.app */,
+				4347D72D308C099F00359B18 /* AssignmentRadarWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4347D72E308C099F00359B18 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4347D72F308C099F00359B18 /* WidgetKit.framework */,
+				4347D731308C099F00359B18 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -53,8 +131,12 @@
 				4347D6E0308B9B4600359B18 /* Sources */,
 				4347D6E1308B9B4600359B18 /* Frameworks */,
 				4347D6E2308B9B4600359B18 /* Resources */,
+				4347D744308C09A100359B18 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				4347D73E308C09A100359B18 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4347D6E6308B9B4600359B18 /* AssignmentRadar */,
@@ -63,6 +145,24 @@
 			productName = AssignmentRadar;
 			productReference = 4347D6E4308B9B4600359B18 /* AssignmentRadar.app */;
 			productType = "com.apple.product-type.application";
+		};
+		4347D72C308C099F00359B18 /* AssignmentRadarWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4347D740308C09A100359B18 /* Build configuration list for PBXNativeTarget "AssignmentRadarWidgetExtension" */;
+			buildPhases = (
+				4347D729308C099F00359B18 /* Sources */,
+				4347D72A308C099F00359B18 /* Frameworks */,
+				4347D72B308C099F00359B18 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				4347D733308C099F00359B18 /* AssignmentRadarWidget */,
+			);
+			name = AssignmentRadarWidgetExtension;
+			productName = AssignmentRadarWidgetExtension;
+			productReference = 4347D72D308C099F00359B18 /* AssignmentRadarWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -75,6 +175,9 @@
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					4347D6E3308B9B4600359B18 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					4347D72C308C099F00359B18 = {
 						CreatedOnToolsVersion = 27.1;
 					};
 				};
@@ -94,12 +197,18 @@
 			projectRoot = "";
 			targets = (
 				4347D6E3308B9B4600359B18 /* AssignmentRadar */,
+				4347D72C308C099F00359B18 /* AssignmentRadarWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		4347D6E2308B9B4600359B18 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		4347D72B308C099F00359B18 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -112,7 +221,20 @@
 			files = (
 			);
 		};
+		4347D729308C099F00359B18 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4347D73E308C09A100359B18 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4347D72C308C099F00359B18 /* AssignmentRadarWidgetExtension */;
+			targetProxy = 4347D73D308C09A100359B18 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		4347D6EF308B9B4600359B18 /* Debug configuration for PBXProject "AssignmentRadar" */ = {
@@ -243,6 +365,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AssignmentRadar/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -274,6 +397,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AssignmentRadar/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -289,6 +413,64 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		4347D741308C09A100359B18 /* Debug configuration for PBXNativeTarget "AssignmentRadarWidgetExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AssignmentRadarWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AssignmentRadarWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.emvee.AssignmentRadar.AssignmentRadarWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4347D742308C09A100359B18 /* Release configuration for PBXNativeTarget "AssignmentRadarWidgetExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AssignmentRadarWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AssignmentRadarWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.emvee.AssignmentRadar.AssignmentRadarWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -312,6 +494,14 @@
 			buildConfigurations = (
 				4347D6F2308B9B4600359B18 /* Debug configuration for PBXNativeTarget "AssignmentRadar" */,
 				4347D6F3308B9B4600359B18 /* Release configuration for PBXNativeTarget "AssignmentRadar" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		4347D740308C09A100359B18 /* Build configuration list for PBXNativeTarget "AssignmentRadarWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4347D741308C09A100359B18 /* Debug configuration for PBXNativeTarget "AssignmentRadarWidgetExtension" */,
+				4347D742308C09A100359B18 /* Release configuration for PBXNativeTarget "AssignmentRadarWidgetExtension" */,
 			);
 			defaultConfigurationName = Release;
 		};

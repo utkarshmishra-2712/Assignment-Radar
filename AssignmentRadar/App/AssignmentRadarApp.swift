@@ -2,7 +2,8 @@
 //  AssignmentRadarApp.swift
 //  AssignmentRadar
 //
-//  Created by KIET3 on 23/10/26.
+//  Application entry point. Configures the ThemeManager,
+//  the active ColorScheme, and the SwiftData container.
 //
 
 import SwiftUI
@@ -10,9 +11,11 @@ import SwiftData
 
 @main
 struct AssignmentRadarApp: App {
+    @StateObject private var themeManager = ThemeManager()
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            DeadlineItem.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,7 +28,13 @@ struct AssignmentRadarApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainView()
+                .environmentObject(themeManager)
+                .preferredColorScheme(themeManager.currentTheme.colorScheme)
+                .appRoundedFont()
+                .onOpenURL { url in
+                    DeepLinkManager.shared.handle(url: url)
+                }
         }
         .modelContainer(sharedModelContainer)
     }
