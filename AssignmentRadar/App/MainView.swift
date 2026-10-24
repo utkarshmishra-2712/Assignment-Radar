@@ -31,6 +31,11 @@ struct MainView: View {
     @State private var calendarAlertMessage: String? = nil
     @State private var showingCodingRadar: Bool = false
     @AppStorage("hasSeenCodingRadarHint") private var hasSeenCodingRadarHint: Bool = false
+    @AppStorage("show_streak") private var showStreak: Bool = true
+
+    private var streakResult: StreakResult {
+        StreakCalculator.calculate(items: deadlines)
+    }
 
     var body: some View {
         ZStack {
@@ -168,17 +173,30 @@ struct MainView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Assignment Radar")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Theme.textColor(for: colorScheme))
-                        .contentShape(Rectangle())
-                        .onTapGesture(count: 2) {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                showingCodingRadar = true
-                                hasSeenCodingRadarHint = true
+                    VStack(spacing: 2) {
+                        Text("Assignment Radar")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(Theme.textColor(for: colorScheme))
+
+                        if showStreak, let summary = streakResult.summaryLine {
+                            HStack(spacing: 4) {
+                                Image(systemName: "flame.fill")
+                                    .font(.system(size: 9))
+                                Text(summary)
+                                    .font(.system(size: 11, weight: .medium))
                             }
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .transition(.opacity)
                         }
-                        .accessibilityLabel("Assignment Radar Title. Double tap to enter CodingRadar.")
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showingCodingRadar = true
+                            hasSeenCodingRadarHint = true
+                        }
+                    }
+                    .accessibilityLabel("Assignment Radar Title. Double tap to enter CodingRadar.")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     menuButton
@@ -240,8 +258,10 @@ struct MainView: View {
             #if DEBUG
             .onAppear {
                 if CommandLine.arguments.contains("-runTests") {
-                    let result = ICSParserTests.runTests()
-                    print("TEST_RESULT: \(result.isSuccess ? "PASSED" : "FAILED") - \(result.message)")
+                    let icsResult = ICSParserTests.runTests()
+                    print("ICS_TEST_RESULT: \(icsResult.isSuccess ? "PASSED" : "FAILED") - \(icsResult.message)")
+                    let streakResult = StreakCalculatorTests.runTests()
+                    print("STREAK_TEST_RESULT: \(streakResult.isSuccess ? "PASSED" : "FAILED") - \(streakResult.message)")
                 }
                 if CommandLine.arguments.contains("-loadSampleData") && deadlines.isEmpty {
                     loadSampleData()
@@ -325,6 +345,19 @@ struct MainView: View {
                 }
             }
 
+            // Section: Progress
+            Section("Progress") {
+                Toggle("Show streak", isOn: $showStreak)
+
+                Button {} label: {
+                    Label(
+                        "Streak: \(streakResult.currentStreak)d · Best: \(streakResult.bestStreak)d",
+                        systemImage: "flame"
+                    )
+                }
+                .disabled(true)
+            }
+
             // Section 2: Appearance
             Section("Appearance") {
                 ForEach(AppTheme.allCases) { theme in
@@ -346,28 +379,6 @@ struct MainView: View {
                     showingAddDeadlineSheet = true
                 } label: {
                     Label("Add manually", systemImage: "square.and.pencil")
-                }
-
-                Button {
-                    showingImportSheet = true
-                } label: {
-                    Label(hasSavedMoodleLink ? "Change calendar link" : "Import from calendar link", systemImage: "link")
-                }
-
-                if hasSavedMoodleLink {
-                    Button {
-                        Task {
-                            await refreshFromMoodle()
-                        }
-                    } label: {
-                        Label("Refresh from Moodle", systemImage: "arrow.clockwise")
-                    }
-
-                    Button(role: .destructive) {
-                        removeSavedMoodleLink()
-                    } label: {
-                        Label("Remove saved link", systemImage: "link.badge.plus")
-                    }
                 }
 
                 Button {
@@ -597,7 +608,8 @@ struct MainView: View {
                 subject: "MATH201",
                 dueDate: completedDate,
                 source: "manual",
-                isDone: true
+                isDone: true,
+                completedAt: completedDate
             )
         ]
 

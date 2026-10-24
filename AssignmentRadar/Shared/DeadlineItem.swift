@@ -37,6 +37,15 @@ final class DeadlineItem {
     /// Last modified timestamp from Moodle ICS (used to prevent stale overwrites)
     var lastModified: Date?
 
+    /// Timestamp when the student marked this assignment completed
+    var completedAt: Date?
+
+    /// Returns true if the item was completed on or before its due date
+    var isCompletedOnTime: Bool {
+        guard isDone, let completedAt = completedAt else { return false }
+        return completedAt <= dueDate
+    }
+
     init(
         id: String = UUID().uuidString,
         title: String,
@@ -46,7 +55,8 @@ final class DeadlineItem {
         link: URL? = nil,
         isDone: Bool = false,
         calendarEventID: String? = nil,
-        lastModified: Date? = nil
+        lastModified: Date? = nil,
+        completedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -57,5 +67,6 @@ final class DeadlineItem {
         self.isDone = isDone
         self.calendarEventID = calendarEventID
         self.lastModified = lastModified
+        self.completedAt = completedAt
     }
 }

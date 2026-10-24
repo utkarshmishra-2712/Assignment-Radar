@@ -204,6 +204,7 @@ struct RadarView: View {
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     item.isDone = true
+                    item.completedAt = Date()
                     CompletedDeadlinesStore.shared.markCompleted(id: item.id)
                     CalendarManager.shared.removeEvent(for: item)
                     try? modelContext.save()
@@ -270,6 +271,7 @@ struct RadarView: View {
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     item.isDone = false
+                    item.completedAt = nil
                     CompletedDeadlinesStore.shared.markIncomplete(id: item.id)
                     try? modelContext.save()
                     WidgetDataStore.sync(from: allDeadlines)
