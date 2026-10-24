@@ -834,6 +834,10 @@ struct PhotoImportSheet: View {
     private func importSelectedDeadlines() {
         let toImport = detectedDrafts.filter { $0.isSelected }
 
+        let activeAccount = (KeychainStore.read(key: KeychainStore.moodleUsernameKey) ?? UserDefaults.standard.string(forKey: "active_moodle_account"))?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanAccount = (activeAccount?.isEmpty == false) ? activeAccount : nil
+
         for draft in toImport {
             let cleanTitle = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let cleanSubject = draft.subject.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -842,7 +846,8 @@ struct PhotoImportSheet: View {
                 title: cleanTitle.isEmpty ? "Assignment Task" : cleanTitle,
                 subject: cleanSubject.isEmpty ? "General" : cleanSubject,
                 dueDate: draft.dueDate,
-                source: "photo"
+                source: "photo",
+                account: cleanAccount
             )
 
             modelContext.insert(item)

@@ -16,7 +16,18 @@ struct MainView: View {
     @EnvironmentObject private var themeManager: ThemeManager
     @ObservedObject private var deepLinkManager = DeepLinkManager.shared
 
+    @AppStorage("active_moodle_account") private var activeMoodleAccount: String = ""
     @Query private var deadlines: [DeadlineItem]
+
+    /// Deadlines scoped to the active account (or guest deadlines if signed out)
+    private var activeDeadlines: [DeadlineItem] {
+        let current = activeMoodleAccount.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !current.isEmpty {
+            return deadlines.filter { $0.account?.lowercased() == current }
+        } else {
+            return deadlines.filter { $0.account == nil || $0.account?.isEmpty == true }
+        }
+    }
 
     @State private var showingAddDeadlineSheet: Bool = false
     @State private var showingImportSheet: Bool = false
@@ -34,7 +45,7 @@ struct MainView: View {
     @AppStorage("show_streak") private var showStreak: Bool = true
 
     private var streakResult: StreakResult {
-        StreakCalculator.calculate(items: deadlines)
+        StreakCalculator.calculate(items: activeDeadlines)
     }
 
     var body: some View {
@@ -52,7 +63,7 @@ struct MainView: View {
                         Theme.backgroundColor(for: colorScheme)
                             .ignoresSafeArea()
 
-                        if deadlines.isEmpty {
+                        if activeDeadlines.isEmpty {
                             emptyStateView
                         } else {
                             RadarView()
@@ -207,6 +218,12 @@ struct MainView: View {
                     .onDisappear {
                         hasMoodleSession = MoodleAuthService.shared.hasActiveSession
                         hasSavedMoodleLink = KeychainStore.exists(key: KeychainStore.moodleCalendarUrlKey)
+                        if let user = KeychainStore.read(key: KeychainStore.moodleUsernameKey)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !user.isEmpty {
+                            activeMoodleAccount = user
+                        } else {
+                            activeMoodleAccount = ""
+                        }
+                        WidgetDataStore.sync(from: activeDeadlines)
                     }
             }
             .sheet(isPresented: $showingAddDeadlineSheet) {
@@ -234,8 +251,20 @@ struct MainView: View {
             .onAppear {
                 hasSavedMoodleLink = KeychainStore.exists(key: KeychainStore.moodleCalendarUrlKey)
                 hasMoodleSession = MoodleAuthService.shared.hasActiveSession
+                if let savedUsername = KeychainStore.read(key: KeychainStore.moodleUsernameKey)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !savedUsername.isEmpty {
+                    if activeMoodleAccount != savedUsername {
+                        activeMoodleAccount = savedUsername
+                    }
+                    // Migrate any unassigned manual/photo items to this active account
+                    for item in deadlines where item.account == nil && item.source != "moodle" {
+                        item.account = savedUsername
+                    }
+                    try? modelContext.save()
+                } else if !activeMoodleAccount.isEmpty {
+                    activeMoodleAccount = ""
+                }
                 CompletedDeadlinesStore.shared.syncExistingCompletedItems(from: modelContext)
-                WidgetDataStore.sync(from: deadlines)
+                WidgetDataStore.sync(from: activeDeadlines)
                 triggerAutoSyncIfNeeded()
             }
             .onChange(of: scenePhase) { _, newPhase in
@@ -245,9 +274,13 @@ struct MainView: View {
                     triggerAutoSyncIfNeeded()
                 }
             }
-            .onChange(of: deadlines) { _, newDeadlines in
+            .onChange(of: activeDeadlines) { _, newDeadlines in
                 WidgetDataStore.sync(from: newDeadlines)
                 AssignmentNotificationManager.shared.rescheduleAll(items: newDeadlines)
+            }
+            .onChange(of: activeMoodleAccount) { _, _ in
+                WidgetDataStore.sync(from: activeDeadlines)
+                AssignmentNotificationManager.shared.rescheduleAll(items: activeDeadlines)
             }
             .onChange(of: deepLinkManager.shouldOpenImportSheet) { _, shouldOpen in
                 if shouldOpen {
@@ -397,7 +430,7 @@ struct MainView: View {
                 } label: {
                     Label("Add all to Apple Calendar", systemImage: "calendar.badge.plus")
                 }
-                .disabled(deadlines.isEmpty || isSyncingCalendar)
+                .disabled(activeDeadlines.isEmpty || isSyncingCalendar)
             }
 
             // Section 5: More
@@ -502,7 +535,7 @@ struct MainView: View {
         }
 
         do {
-            let result = try await CalendarManager.shared.syncAllDeadlines(deadlines)
+            let result = try await CalendarManager.shared.syncAllDeadlines(activeDeadlines)
             calendarAlertMessage = result.summaryMessage
         } catch {
             calendarAlertMessage = error.localizedDescription
@@ -514,7 +547,14 @@ struct MainView: View {
         let existingItems = (try? modelContext.fetch(descriptor)) ?? []
         let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
 
+        let activeAccount = (KeychainStore.read(key: KeychainStore.moodleUsernameKey) ?? UserDefaults.standard.string(forKey: "active_moodle_account"))?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanAccount = (activeAccount?.isEmpty == false) ? activeAccount : nil
+
         for newItem in newItems {
+            if newItem.account == nil {
+                newItem.account = cleanAccount
+            }
             let isMarkedDone = newItem.isDone || CompletedDeadlinesStore.shared.isCompleted(id: newItem.id)
             if isMarkedDone {
                 newItem.isDone = true

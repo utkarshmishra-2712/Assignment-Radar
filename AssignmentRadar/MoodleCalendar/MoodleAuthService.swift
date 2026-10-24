@@ -183,6 +183,8 @@ final class MoodleAuthService {
         // Save token securely in Keychain
         KeychainStore.save(key: KeychainStore.moodleAuthTokenKey, value: token)
         KeychainStore.save(key: KeychainStore.moodleUsernameKey, value: cleanUsername)
+        UserDefaults.standard.set(cleanUsername.lowercased(), forKey: "active_moodle_account")
+        UserDefaults.standard.synchronize()
 
         // Fetch site and user details
         let siteInfo = try await fetchSiteInfo(token: token)
@@ -409,7 +411,14 @@ final class MoodleAuthService {
         let existingItems = (try? modelContext.fetch(descriptor)) ?? []
         let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
 
+        let activeAccount = KeychainStore.read(key: KeychainStore.moodleUsernameKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
         for newItem in newItems {
+            if newItem.account == nil {
+                newItem.account = activeAccount
+            }
+
             let isMarkedDone = newItem.isDone || CompletedDeadlinesStore.shared.isCompleted(id: newItem.id)
             if isMarkedDone {
                 newItem.isDone = true
@@ -436,6 +445,7 @@ final class MoodleAuthService {
                     existing.dueDate = newItem.dueDate
                     existing.link = newItem.link
                     existing.lastModified = newItem.lastModified
+                    existing.account = newItem.account ?? activeAccount
                 }
             } else {
                 modelContext.insert(newItem)
@@ -456,6 +466,8 @@ final class MoodleAuthService {
             flushMoodleDeadlines(in: context)
         }
         KeychainStore.clearMoodleSession()
+        UserDefaults.standard.removeObject(forKey: "active_moodle_account")
+        UserDefaults.standard.synchronize()
     }
 
     // MARK: - Flush Moodle Deadlines
@@ -470,8 +482,9 @@ final class MoodleAuthService {
             }
             try? modelContext.save()
 
-            let remaining = allItems.filter { $0.source != "moodle" }
-            WidgetDataStore.sync(from: remaining)
+            // Upon sign out or account flush, only sync guest items (account == nil) to widget
+            let guestItems = allItems.filter { $0.source != "moodle" && ($0.account == nil || $0.account?.isEmpty == true) }
+            WidgetDataStore.sync(from: guestItems)
         }
     }
 

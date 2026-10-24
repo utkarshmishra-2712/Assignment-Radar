@@ -40,6 +40,10 @@ final class DeadlineItem {
     /// Timestamp when the student marked this assignment completed
     var completedAt: Date?
 
+    /// The username of the student account under which this deadline was created or imported.
+    /// If created while signed out (guest), this is nil.
+    var account: String?
+
     /// Returns true if the item was completed on or before its due date
     var isCompletedOnTime: Bool {
         guard isDone, let completedAt = completedAt else { return false }
@@ -56,7 +60,8 @@ final class DeadlineItem {
         isDone: Bool = false,
         calendarEventID: String? = nil,
         lastModified: Date? = nil,
-        completedAt: Date? = nil
+        completedAt: Date? = nil,
+        account: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -68,5 +73,6 @@ final class DeadlineItem {
         self.calendarEventID = calendarEventID
         self.lastModified = lastModified
         self.completedAt = completedAt
+        self.account = account
     }
 }

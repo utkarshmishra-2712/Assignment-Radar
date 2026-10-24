@@ -319,7 +319,15 @@ struct ImportLinkSheet: View {
         let existingItems = (try? modelContext.fetch(descriptor)) ?? []
         let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
 
+        let activeAccount = (KeychainStore.read(key: KeychainStore.moodleUsernameKey) ?? UserDefaults.standard.string(forKey: "active_moodle_account"))?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanAccount = (activeAccount?.isEmpty == false) ? activeAccount : nil
+
         for newItem in newItems {
+            if newItem.account == nil {
+                newItem.account = cleanAccount
+            }
+
             let isMarkedDone = newItem.isDone || CompletedDeadlinesStore.shared.isCompleted(id: newItem.id)
             if isMarkedDone {
                 newItem.isDone = true
@@ -346,6 +354,7 @@ struct ImportLinkSheet: View {
                     existing.dueDate = newItem.dueDate
                     existing.link = newItem.link
                     existing.lastModified = newItem.lastModified
+                    existing.account = newItem.account ?? cleanAccount
                 }
             } else {
                 modelContext.insert(newItem)

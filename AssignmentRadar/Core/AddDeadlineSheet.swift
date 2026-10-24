@@ -139,11 +139,16 @@ struct AddDeadlineSheet: View {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSubject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        let activeAccount = (KeychainStore.read(key: KeychainStore.moodleUsernameKey) ?? UserDefaults.standard.string(forKey: "active_moodle_account"))?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanAccount = (activeAccount?.isEmpty == false) ? activeAccount : nil
+
         let newDeadline = DeadlineItem(
             title: cleanTitle,
             subject: cleanSubject.isEmpty ? "General" : cleanSubject,
             dueDate: dueDate,
-            source: "manual"
+            source: "manual",
+            account: cleanAccount
         )
 
         modelContext.insert(newDeadline)

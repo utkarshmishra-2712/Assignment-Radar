@@ -39,7 +39,14 @@ final class AppBootstrapper {
 
         // 2. Read cached session and connection state from secure Keychain
         _ = KeychainStore.read(key: KeychainStore.moodleAuthTokenKey)
-        _ = KeychainStore.read(key: KeychainStore.moodleUsernameKey)
+        let activeUser = KeychainStore.read(key: KeychainStore.moodleUsernameKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if let activeUser = activeUser, !activeUser.isEmpty {
+            UserDefaults.standard.set(activeUser, forKey: "active_moodle_account")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "active_moodle_account")
+        }
+        UserDefaults.standard.synchronize()
 
         // 3. Confirm Theme settings are active
         _ = themeManager.currentTheme

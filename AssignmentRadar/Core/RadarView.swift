@@ -12,6 +12,7 @@ import SwiftData
 struct RadarView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("active_moodle_account") private var activeMoodleAccount: String = ""
     @Query(sort: \DeadlineItem.dueDate) private var allDeadlines: [DeadlineItem]
 
     @State private var isCompletedExpanded: Bool = false
@@ -23,22 +24,33 @@ struct RadarView: View {
     private var endOfToday: Date { calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now }
     private var endOfWeek: Date { calendar.date(byAdding: .day, value: 7, to: startOfToday) ?? now }
 
+    /// Scopes all visible deadlines to the currently active account.
+    /// When signed out, only guest deadlines (account == nil) are shown.
+    private var scopedDeadlines: [DeadlineItem] {
+        let current = activeMoodleAccount.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !current.isEmpty {
+            return allDeadlines.filter { $0.account?.lowercased() == current }
+        } else {
+            return allDeadlines.filter { $0.account == nil || $0.account?.isEmpty == true }
+        }
+    }
+
     // Active deadlines grouped by timeframe
     private var todayItems: [DeadlineItem] {
-        allDeadlines.filter { !$0.isDone && $0.dueDate < endOfToday }
+        scopedDeadlines.filter { !$0.isDone && $0.dueDate < endOfToday }
     }
 
     private var thisWeekItems: [DeadlineItem] {
-        allDeadlines.filter { !$0.isDone && $0.dueDate >= endOfToday && $0.dueDate < endOfWeek }
+        scopedDeadlines.filter { !$0.isDone && $0.dueDate >= endOfToday && $0.dueDate < endOfWeek }
     }
 
     private var laterItems: [DeadlineItem] {
-        allDeadlines.filter { !$0.isDone && $0.dueDate >= endOfWeek }
+        scopedDeadlines.filter { !$0.isDone && $0.dueDate >= endOfWeek }
     }
 
     // Completed deadlines
     private var completedItems: [DeadlineItem] {
-        allDeadlines.filter { $0.isDone }
+        scopedDeadlines.filter { $0.isDone }
     }
 
     var body: some View {
