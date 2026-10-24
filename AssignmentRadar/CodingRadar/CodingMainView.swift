@@ -30,6 +30,7 @@ struct CodingMainView: View {
     @State private var toastMessage: String? = nil
     @State private var showingCalendarPermissionAlert: Bool = false
     @State private var showingNotificationSheet: Bool = false
+    @State private var showingProfileSheet: Bool = false
     @State private var notificationManager = CodingNotificationManager.shared
 
     var body: some View {
@@ -117,6 +118,16 @@ struct CodingMainView: View {
                 NotificationSettingsSheet { message in
                     showToast(message)
                 }
+            }
+            .sheet(isPresented: $showingProfileSheet) {
+                CodingProfileView()
+            }
+            .task {
+                #if DEBUG
+                if CommandLine.arguments.contains("-openCodingProfile") {
+                    showingProfileSheet = true
+                }
+                #endif
             }
         }
         .preferredColorScheme(.dark)
@@ -318,7 +329,16 @@ struct CodingMainView: View {
                 }
             }
 
-            // Section 2: Problem of the Day
+            // Section 2: Profile
+            Section("Profile") {
+                Button {
+                    showingProfileSheet = true
+                } label: {
+                    Label("Coding profile", systemImage: "person.crop.circle")
+                }
+            }
+
+            // Section 3: Problem of the Day
             Section("Problem of the Day (Practice)") {
                 if let lc = potdService.leetCodeProblem {
                     Button {

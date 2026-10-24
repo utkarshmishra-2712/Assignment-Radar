@@ -326,6 +326,9 @@ struct MainView: View {
                 if CommandLine.arguments.contains("-openNotificationSettings") {
                     showingAssignmentNotificationSheet = true
                 }
+                if CommandLine.arguments.contains("-openCodingProfile") || CommandLine.arguments.contains("-openCodingRadar") {
+                    showingCodingRadar = true
+                }
             }
             #endif
                 }

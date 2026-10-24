@@ -17,6 +17,8 @@ struct AssignmentRadarApp: App {
         let schema = Schema([
             DeadlineItem.self,
             ContestItem.self,
+            CodingProfile.self,
+            PlatformSnapshot.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

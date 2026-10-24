@@ -1,0 +1,599 @@
+//
+//  CodingProfileView.swift
+//  AssignmentRadar
+//
+//  Two-tab coding profile screen ("Coder" and "Analysis") for CodingRadar.
+//  Allows linking competitive programming accounts, editing profile details,
+//  and viewing cached public stats in a terminal-inspired dark UI.
+//
+
+import SwiftUI
+import SwiftData
+
+enum CodingProfileTab: String, CaseIterable, Identifiable {
+    case coder = "Coder"
+    case analysis = "Analysis"
+
+    var id: String { rawValue }
+}
+
+struct CodingProfileView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Query private var profiles: [CodingProfile]
+    @Query private var snapshots: [PlatformSnapshot]
+
+    @State private var selectedTab: CodingProfileTab = .coder
+    @State private var isEditingName: Bool = false
+    @State private var editedName: String = ""
+    @State private var activeEditingPlatform: CodingPlatform? = nil
+    @State private var handleInputText: String = ""
+    @State private var isConnectingPlatform: CodingPlatform? = nil
+    @State private var platformErrors: [CodingPlatform: String] = [:]
+    @State private var quietNotices: [String] = []
+    @State private var isRefreshing: Bool = false
+
+    private var profile: CodingProfile {
+        if let existing = profiles.first {
+            return existing
+        } else {
+            let newProfile = CodingProfile()
+            modelContext.insert(newProfile)
+            try? modelContext.save()
+            return newProfile
+        }
+    }
+
+    private func snapshot(for platform: CodingPlatform) -> PlatformSnapshot? {
+        guard let handle = profile.handle(for: platform), !handle.isEmpty else { return nil }
+        let id = "\(platform.rawValue.lowercased())_\(handle.lowercased())"
+        return snapshots.first(where: { $0.id == id })
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                CodeTheme.background
+                    .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    // Top Segmented Pill Tab Switcher
+                    tabSwitcher
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+
+                    // Content View
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                            // Quiet notices banner (if any platform failed)
+                            if !quietNotices.isEmpty {
+                                ForEach(quietNotices, id: \.self) { notice in
+                                    quietNoticeBanner(text: notice)
+                                }
+                            }
+
+                            if selectedTab == .coder {
+                                coderTabView
+                            } else {
+                                analysisTabView
+                            }
+                        }
+                        .padding(16)
+                    }
+                }
+            }
+            .navigationTitle("// Coding Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        Task {
+                            await triggerRefresh(force: true)
+                        }
+                    } label: {
+                        if isRefreshing {
+                            ProgressView()
+                                .tint(CodeTheme.primary)
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(CodeTheme.primary)
+                        }
+                    }
+                    .disabled(isRefreshing)
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(CodeTheme.primary)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
+        .task {
+            #if DEBUG
+            if CommandLine.arguments.contains("-loadSampleCodingProfile") {
+                profile.displayName = "Preet Baranawal"
+                profile.leetcodeHandle = "Preet_Baranawal_108"
+                profile.codeforcesHandle = "preetbaranwal9129"
+                profile.atcoderHandle = "tidy_snake"
+                profile.codechefHandle = "tidy_snakes_42"
+                try? modelContext.save()
+            }
+            #endif
+            editedName = profile.displayName
+            await triggerRefresh(force: false)
+        }
+    }
+
+    // MARK: - Top Tab Switcher
+    private var tabSwitcher: some View {
+        HStack(spacing: 6) {
+            ForEach(CodingProfileTab.allCases) { tab in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedTab = tab
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(tab == .coder ? "// Coder" : "// Analysis")
+                            .font(.system(size: 13, weight: selectedTab == tab ? .bold : .medium, design: .monospaced))
+                            .foregroundStyle(selectedTab == tab ? CodeTheme.background : CodeTheme.secondaryText)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(
+                        selectedTab == tab
+                            ? CodeTheme.primary
+                            : CodeTheme.card
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(selectedTab == tab ? CodeTheme.primary : CodeTheme.border, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(CodeTheme.card.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    // MARK: - Quiet Notice Banner
+    private func quietNoticeBanner(text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(Color(hex: 0xE5A93C))
+                .font(.caption)
+
+            Text(text)
+                .font(.caption2)
+                .fontDesign(.monospaced)
+                .foregroundStyle(CodeTheme.text)
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(CodeTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color(hex: 0xE5A93C).opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Coder Tab View
+    private var coderTabView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Profile Header Card
+            profileHeaderCard
+
+            // Section Label
+            HStack {
+                Text("// Connected Platforms")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundStyle(CodeTheme.primary)
+
+                Spacer()
+
+                Text("\(profile.connectedPlatformsCount)/4 active")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(CodeTheme.secondaryText)
+            }
+            .padding(.horizontal, 4)
+
+            // Platform Cards
+            VStack(spacing: 14) {
+                platformCard(for: .leetcode)
+                platformCard(for: .codeforces)
+                platformCard(for: .codechef)
+                platformCard(for: .atcoder)
+            }
+        }
+    }
+
+    // MARK: - Profile Header Card
+    private var profileHeaderCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 16) {
+                // Avatar with initials
+                ZStack {
+                    Circle()
+                        .fill(CodeTheme.card)
+                        .overlay(
+                            Circle()
+                                .stroke(CodeTheme.primary.opacity(0.6), lineWidth: 2)
+                        )
+                        .frame(width: 56, height: 56)
+
+                    Text(profile.initials)
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .foregroundStyle(CodeTheme.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    if isEditingName {
+                        HStack(spacing: 8) {
+                            TextField("Enter display name", text: $editedName)
+                                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                .foregroundStyle(CodeTheme.text)
+                                .textFieldStyle(.plain)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(CodeTheme.background)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .stroke(CodeTheme.primary, lineWidth: 1)
+                                )
+
+                            Button {
+                                let clean = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                profile.displayName = clean.isEmpty ? "Coder" : clean
+                                try? modelContext.save()
+                                isEditingName = false
+                            } label: {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(CodeTheme.primary)
+                                    .font(.title3)
+                            }
+
+                            Button {
+                                editedName = profile.displayName
+                                isEditingName = false
+                            } label: {
+                                Image(systemName: "xmark.circle")
+                                    .foregroundStyle(CodeTheme.secondaryText)
+                                    .font(.title3)
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 8) {
+                            Text(profile.displayName)
+                                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                .foregroundStyle(CodeTheme.text)
+
+                            Button {
+                                editedName = profile.displayName
+                                isEditingName = true
+                            } label: {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(CodeTheme.secondaryText)
+                            }
+                        }
+                    }
+
+                    Text("Competitive Programmer")
+                        .font(.caption)
+                        .fontDesign(.monospaced)
+                        .foregroundStyle(CodeTheme.secondaryText)
+                }
+
+                Spacer()
+            }
+        }
+        .padding(16)
+        .codeCardStyle()
+    }
+
+    // MARK: - Platform Card
+    private func platformCard(for platform: CodingPlatform) -> some View {
+        let handle = profile.handle(for: platform)
+        let snap = snapshot(for: platform)
+        let isConnected = handle != nil && !handle!.isEmpty
+        let isEditing = activeEditingPlatform == platform
+
+        return VStack(alignment: .leading, spacing: 12) {
+            // Header Row: Mark, Name, Status Pill
+            HStack(spacing: 12) {
+                PlatformMarkView(platform: platform, size: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(platform.style.displayName)
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundStyle(CodeTheme.text)
+
+                    if let h = handle, !h.isEmpty && !isEditing {
+                        Text("@\(h)")
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(platform.platformAccent)
+                    }
+                }
+
+                Spacer()
+
+                // Status Badge
+                statusBadge(isConnected: isConnected, snapshot: snap)
+            }
+
+            // Body: Connected stats OR Connect/Edit form
+            if isConnected && !isEditing {
+                // Connected Headline Stats
+                headlineStatsRow(for: platform, snapshot: snap)
+
+                // Action Links (Edit / Remove)
+                HStack(spacing: 16) {
+                    Spacer()
+
+                    Button {
+                        handleInputText = handle ?? ""
+                        platformErrors[platform] = nil
+                        activeEditingPlatform = platform
+                    } label: {
+                        Text("Edit")
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(CodeTheme.secondaryText)
+                    }
+
+                    Button {
+                        profile.setHandle(nil, for: platform)
+                        platformErrors[platform] = nil
+                        try? modelContext.save()
+                    } label: {
+                        Text("Remove")
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(CodeTheme.alert)
+                    }
+                }
+                .padding(.top, 4)
+            } else {
+                // Input Form: Type handle or paste link
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        TextField("Paste profile link or handle", text: $handleInputText)
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundStyle(CodeTheme.text)
+                            .textFieldStyle(.plain)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(CodeTheme.background)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(platformErrors[platform] != nil ? CodeTheme.alert : CodeTheme.border, lineWidth: 1)
+                            )
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+
+                        if isConnectingPlatform == platform {
+                            ProgressView()
+                                .tint(CodeTheme.primary)
+                                .frame(width: 36)
+                        } else {
+                            Button {
+                                Task {
+                                    await savePlatformHandle(for: platform)
+                                }
+                            } label: {
+                                Text(isConnected ? "Save" : "Connect")
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(CodeTheme.background)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(CodeTheme.primary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            }
+                            .disabled(handleInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+
+                        if isEditing {
+                            Button {
+                                activeEditingPlatform = nil
+                                handleInputText = ""
+                                platformErrors[platform] = nil
+                            } label: {
+                                Text("Cancel")
+                                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(CodeTheme.secondaryText)
+                            }
+                        }
+                    }
+
+                    // Friendly error message if validation failed
+                    if let error = platformErrors[platform] {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.caption2)
+                            Text(error)
+                                .font(.caption2)
+                                .fontDesign(.monospaced)
+                        }
+                        .foregroundStyle(CodeTheme.alert)
+                    }
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding(16)
+        .codeCardStyle()
+    }
+
+    // MARK: - Headline Stats Row
+    private func headlineStatsRow(for platform: CodingPlatform, snapshot: PlatformSnapshot?) -> some View {
+        HStack(spacing: 8) {
+            // Box 1: Rating
+            statBox(
+                label: "RATING",
+                value: snapshot?.rating.map { "\($0)" } ?? "Unrated",
+                accent: platform.platformAccent
+            )
+
+            // Box 2: Rank / Stars
+            statBox(
+                label: "RANK",
+                value: snapshot?.rankTitle ?? "—",
+                accent: CodeTheme.text
+            )
+
+            // Box 3: Solved
+            statBox(
+                label: "SOLVED",
+                value: snapshot?.solvedTotal.map { "\($0)" } ?? "—",
+                accent: CodeTheme.primary
+            )
+        }
+    }
+
+    private func statBox(label: String, value: String, accent: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(label)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(CodeTheme.secondaryText)
+
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundStyle(accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(CodeTheme.background.opacity(0.8))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(CodeTheme.border.opacity(0.6), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Status Badge
+    private func statusBadge(isConnected: Bool, snapshot: PlatformSnapshot?) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(
+                    !isConnected ? CodeTheme.secondaryText.opacity(0.4) :
+                    snapshot?.statusRaw == "connected" ? CodeTheme.primary :
+                    snapshot?.statusRaw == "unavailable" ? Color(hex: 0xE5A93C) : CodeTheme.alert
+                )
+                .frame(width: 6, height: 6)
+
+            Text(
+                !isConnected ? "NOT CONNECTED" :
+                snapshot?.statusRaw == "connected" ? "CONNECTED" :
+                snapshot?.statusRaw == "unavailable" ? "UNAVAILABLE" : "NOT FOUND"
+            )
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .foregroundStyle(
+                !isConnected ? CodeTheme.secondaryText :
+                snapshot?.statusRaw == "connected" ? CodeTheme.primary :
+                snapshot?.statusRaw == "unavailable" ? Color(hex: 0xE5A93C) : CodeTheme.alert
+            )
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            (!isConnected ? CodeTheme.secondaryText.opacity(0.1) :
+             snapshot?.statusRaw == "connected" ? CodeTheme.primary.opacity(0.12) :
+             snapshot?.statusRaw == "unavailable" ? Color(hex: 0xE5A93C).opacity(0.12) : CodeTheme.alert.opacity(0.12))
+        )
+        .clipShape(Capsule())
+    }
+
+    // MARK: - Analysis Tab Placeholder (to be expanded in Step 3)
+    private var analysisTabView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.xyaxis.line")
+                        .font(.system(size: 16))
+                        .foregroundStyle(CodeTheme.primary)
+
+                    Text("// Analysis & Trends")
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundStyle(CodeTheme.text)
+                }
+
+                Text("Performance analytics, Swift Charts rating trends, difficulty breakdowns, topic maps, and activity heatmaps will be configured in Step 3.")
+                    .font(.footnote)
+                    .fontDesign(.monospaced)
+                    .foregroundStyle(CodeTheme.secondaryText)
+                    .lineSpacing(3)
+            }
+            .padding(16)
+            .codeCardStyle()
+        }
+    }
+
+    // MARK: - Actions
+    private func savePlatformHandle(for platform: CodingPlatform) async {
+        let extracted = CodingProfileRepository.extractHandle(from: handleInputText, for: platform)
+        guard !extracted.isEmpty else { return }
+
+        isConnectingPlatform = platform
+        platformErrors[platform] = nil
+
+        do {
+            let snap = try await CodingProfileRepository.shared.fetchSnapshot(
+                for: platform,
+                handle: extracted,
+                modelContext: modelContext,
+                force: true
+            )
+            modelContext.insert(snap)
+            profile.setHandle(extracted, for: platform)
+            try? modelContext.save()
+
+            activeEditingPlatform = nil
+            handleInputText = ""
+        } catch let err as ProfileFetchError {
+            switch err {
+            case .userNotFound(let msg):
+                platformErrors[platform] = msg
+            case .platformUnavailable(let msg):
+                platformErrors[platform] = msg
+            case .networkError(let msg):
+                platformErrors[platform] = msg
+            }
+        } catch {
+            platformErrors[platform] = "Failed to connect: \(error.localizedDescription)"
+        }
+
+        isConnectingPlatform = nil
+    }
+
+    private func triggerRefresh(force: Bool) async {
+        isRefreshing = true
+        let notices = await CodingProfileRepository.shared.refreshAll(
+            profile: profile,
+            modelContext: modelContext,
+            force: force
+        )
+        quietNotices = notices
+        isRefreshing = false
+    }
+}
+
+#Preview {
+    CodingProfileView()
+        .modelContainer(for: [CodingProfile.self, PlatformSnapshot.self], inMemory: true)
+}
