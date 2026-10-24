@@ -31,6 +31,12 @@ struct DailyActivityItem: Codable, Identifiable {
     let count: Int
 }
 
+struct DifficultyBandItem: Codable, Identifiable {
+    var id: String { bandName }
+    let bandName: String
+    let count: Int
+}
+
 @Model
 final class PlatformSnapshot {
     var id: String = "" // e.g. "leetcode_preet_baranawal_108"
@@ -44,9 +50,12 @@ final class PlatformSnapshot {
     var solvedMedium: Int? = nil
     var solvedHard: Int? = nil
     var contestsCount: Int? = nil
+    var streak: Int? = nil
+    var totalActiveDays: Int? = nil
     var ratingHistoryData: Data? = nil
     var dailyActivityData: Data? = nil
     var topicCountsData: Data? = nil
+    var difficultyBandsData: Data? = nil
     var lastFetched: Date = Date()
     var statusRaw: String = "notConnected" // "connected", "notFound", "unavailable", "notConnected"
     var errorMessage: String? = nil
@@ -66,9 +75,12 @@ final class PlatformSnapshot {
         solvedMedium: Int? = nil,
         solvedHard: Int? = nil,
         contestsCount: Int? = nil,
+        streak: Int? = nil,
+        totalActiveDays: Int? = nil,
         ratingHistory: [RatingPoint]? = nil,
         dailyActivity: [DailyActivityItem]? = nil,
         topicCounts: [TopicSolveCount]? = nil,
+        difficultyBands: [DifficultyBandItem]? = nil,
         lastFetched: Date = Date(),
         status: String = "connected",
         errorMessage: String? = nil
@@ -84,6 +96,8 @@ final class PlatformSnapshot {
         self.solvedMedium = solvedMedium
         self.solvedHard = solvedHard
         self.contestsCount = contestsCount
+        self.streak = streak
+        self.totalActiveDays = totalActiveDays
         self.lastFetched = lastFetched
         self.statusRaw = status
         self.errorMessage = errorMessage
@@ -96,6 +110,9 @@ final class PlatformSnapshot {
         }
         if let topics = topicCounts {
             self.topicCountsData = try? JSONEncoder().encode(topics)
+        }
+        if let bands = difficultyBands {
+            self.difficultyBandsData = try? JSONEncoder().encode(bands)
         }
     }
 
@@ -112,5 +129,10 @@ final class PlatformSnapshot {
     var topicCounts: [TopicSolveCount] {
         guard let data = topicCountsData else { return [] }
         return (try? JSONDecoder().decode([TopicSolveCount].self, from: data)) ?? []
+    }
+
+    var difficultyBands: [DifficultyBandItem] {
+        guard let data = difficultyBandsData else { return [] }
+        return (try? JSONDecoder().decode([DifficultyBandItem].self, from: data)) ?? []
     }
 }

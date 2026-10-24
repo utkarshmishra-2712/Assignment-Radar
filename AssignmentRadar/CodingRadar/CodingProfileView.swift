@@ -126,6 +126,9 @@ struct CodingProfileView: View {
                 profile.codechefHandle = "tidy_snakes_42"
                 try? modelContext.save()
             }
+            if CommandLine.arguments.contains("-openAnalysisTab") {
+                selectedTab = .analysis
+            }
             #endif
             editedName = profile.displayName
             await triggerRefresh(force: false)
@@ -519,29 +522,9 @@ struct CodingProfileView: View {
         .clipShape(Capsule())
     }
 
-    // MARK: - Analysis Tab Placeholder (to be expanded in Step 3)
+    // MARK: - Analysis Tab View
     private var analysisTabView: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    Image(systemName: "chart.xyaxis.line")
-                        .font(.system(size: 16))
-                        .foregroundStyle(CodeTheme.primary)
-
-                    Text("// Analysis & Trends")
-                        .font(.system(size: 15, weight: .bold, design: .monospaced))
-                        .foregroundStyle(CodeTheme.text)
-                }
-
-                Text("Performance analytics, Swift Charts rating trends, difficulty breakdowns, topic maps, and activity heatmaps will be configured in Step 3.")
-                    .font(.footnote)
-                    .fontDesign(.monospaced)
-                    .foregroundStyle(CodeTheme.secondaryText)
-                    .lineSpacing(3)
-            }
-            .padding(16)
-            .codeCardStyle()
-        }
+        CodingAnalysisView(snapshots: snapshots)
     }
 
     // MARK: - Actions
@@ -559,6 +542,13 @@ struct CodingProfileView: View {
                 modelContext: modelContext,
                 force: true
             )
+            let targetId = snap.id
+            let descriptor = FetchDescriptor<PlatformSnapshot>(
+                predicate: #Predicate { $0.id == targetId }
+            )
+            if let existing = try? modelContext.fetch(descriptor).first {
+                modelContext.delete(existing)
+            }
             modelContext.insert(snap)
             profile.setHandle(extracted, for: platform)
             try? modelContext.save()

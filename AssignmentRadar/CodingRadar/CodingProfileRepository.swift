@@ -113,9 +113,16 @@ final class CodingProfileRepository {
                 }
             }
 
-            for await (plat, result) in group {
+            for await (_, result) in group {
                 switch result {
                 case .success(let snap):
+                    let targetId = snap.id
+                    let descriptor = FetchDescriptor<PlatformSnapshot>(
+                        predicate: #Predicate { $0.id == targetId }
+                    )
+                    if let existing = try? modelContext.fetch(descriptor).first {
+                        modelContext.delete(existing)
+                    }
                     modelContext.insert(snap)
                     try? modelContext.save()
                 case .failure(let err):
@@ -281,15 +288,20 @@ final class CodingProfileRepository {
             }
         }
 
-        // 3. Daily activity
+        // 3. Daily activity, streak & active days
+        var streak: Int? = nil
+        var totalActiveDays: Int? = nil
         var dailyActivity: [DailyActivityItem] = []
-        if let cal = matchedUser["userCalendar"] as? [String: Any],
-           let jsonStr = cal["submissionCalendar"] as? String,
-           let jsonData = jsonStr.data(using: .utf8),
-           let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Int] {
-            for (secStr, count) in dict {
-                if let sec = Double(secStr) {
-                    dailyActivity.append(DailyActivityItem(timestamp: sec, count: count))
+        if let cal = matchedUser["userCalendar"] as? [String: Any] {
+            streak = cal["streak"] as? Int
+            totalActiveDays = cal["totalActiveDays"] as? Int
+            if let jsonStr = cal["submissionCalendar"] as? String,
+               let jsonData = jsonStr.data(using: .utf8),
+               let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Int] {
+                for (secStr, count) in dict {
+                    if let sec = Double(secStr) {
+                        dailyActivity.append(DailyActivityItem(timestamp: sec, count: count))
+                    }
                 }
             }
         }
@@ -310,6 +322,12 @@ final class CodingProfileRepository {
             }
         }
 
+        let difficultyBands = [
+            DifficultyBandItem(bandName: "Easy", count: solvedEasy),
+            DifficultyBandItem(bandName: "Medium", count: solvedMed),
+            DifficultyBandItem(bandName: "Hard", count: solvedHard)
+        ]
+
         let maxR = ratingHistory.map { $0.rating }.max() ?? rating
 
         return PlatformSnapshot(
@@ -323,9 +341,12 @@ final class CodingProfileRepository {
             solvedMedium: solvedMed,
             solvedHard: solvedHard,
             contestsCount: contestsCount,
+            streak: streak,
+            totalActiveDays: totalActiveDays,
             ratingHistory: ratingHistory,
             dailyActivity: dailyActivity,
             topicCounts: topicCounts,
+            difficultyBands: difficultyBands,
             lastFetched: Date(),
             status: "connected"
         )
@@ -398,10 +419,12 @@ final class CodingProfileRepository {
 
         // 3. user.status (submissions for solved count & topics)
         var solvedTotal = 0
-        var solvedEasy = 0 // < 1200
-        var solvedMed = 0  // 1200 - 1600
-        var solvedHard = 0 // >= 1600
+        var solvedBelow1000 = 0
+        var solved1000to1399 = 0
+        var solved1400to1799 = 0
+        var solved1800plus = 0
         var topicDict: [String: Int] = [:]
+        var dailyDict: [TimeInterval: Int] = [:]
 
         if let statusUrl = URL(string: "https://codeforces.com/api/user.status?handle=\(handle)&from=1&count=200"),
            let (sData, sResp) = try? await URLSession.shared.data(from: statusUrl),
@@ -411,8 +434,14 @@ final class CodingProfileRepository {
             var solvedProblemKeys = Set<String>()
 
             for sub in sList {
-                guard (sub["verdict"] as? String) == "OK",
-                      let prob = sub["problem"] as? [String: Any] else { continue }
+                guard (sub["verdict"] as? String) == "OK" else { continue }
+
+                if let timeSec = sub["creationTimeSeconds"] as? TimeInterval {
+                    let daySec = floor(timeSec / 86400.0) * 86400.0
+                    dailyDict[daySec, default: 0] += 1
+                }
+
+                guard let prob = sub["problem"] as? [String: Any] else { continue }
                 let contestId = prob["contestId"] as? Int ?? 0
                 let index = prob["index"] as? String ?? ""
                 let key = "\(contestId)_\(index)"
@@ -420,9 +449,17 @@ final class CodingProfileRepository {
                 if !solvedProblemKeys.contains(key) {
                     solvedProblemKeys.insert(key)
                     let pRating = prob["rating"] as? Int ?? 0
-                    if pRating > 0 && pRating < 1200 { solvedEasy += 1 }
-                    else if pRating >= 1200 && pRating < 1600 { solvedMed += 1 }
-                    else if pRating >= 1600 { solvedHard += 1 }
+                    if pRating > 0 {
+                        if pRating < 1000 {
+                            solvedBelow1000 += 1
+                        } else if pRating <= 1399 {
+                            solved1000to1399 += 1
+                        } else if pRating <= 1799 {
+                            solved1400to1799 += 1
+                        } else {
+                            solved1800plus += 1
+                        }
+                    }
 
                     if let tags = prob["tags"] as? [String] {
                         for t in tags {
@@ -434,6 +471,15 @@ final class CodingProfileRepository {
             solvedTotal = solvedProblemKeys.count
         }
 
+        let difficultyBands = [
+            DifficultyBandItem(bandName: "< 1000", count: solvedBelow1000),
+            DifficultyBandItem(bandName: "1000–1399", count: solved1000to1399),
+            DifficultyBandItem(bandName: "1400–1799", count: solved1400to1799),
+            DifficultyBandItem(bandName: "1800+", count: solved1800plus)
+        ]
+
+        let dailyActivity = dailyDict.map { DailyActivityItem(timestamp: $0.key, count: $0.value) }
+
         let topics = topicDict.map { TopicSolveCount(topicName: $0.key.capitalized, problemsSolved: $0.value) }
             .sorted { $0.problemsSolved > $1.problemsSolved }
 
@@ -444,13 +490,14 @@ final class CodingProfileRepository {
             maxRating: maxRating ?? currentRating,
             rankTitle: rankTitle?.capitalized,
             solvedTotal: solvedTotal > 0 ? solvedTotal : nil,
-            solvedEasy: solvedEasy,
-            solvedMedium: solvedMed,
-            solvedHard: solvedHard,
+            solvedEasy: solvedBelow1000,
+            solvedMedium: solved1000to1399,
+            solvedHard: solved1400to1799 + solved1800plus,
             contestsCount: ratingHistory.count,
             ratingHistory: ratingHistory,
-            dailyActivity: [],
+            dailyActivity: dailyActivity,
             topicCounts: topics,
+            difficultyBands: difficultyBands,
             lastFetched: Date(),
             status: "connected"
         )
