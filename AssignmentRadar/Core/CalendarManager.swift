@@ -142,16 +142,44 @@ final class CalendarManager {
         notesLines.append("Synchronized by Assignment Radar")
         event.notes = notesLines.joined(separator: "\n")
 
-        // Add alarms: 24 hours before and 2 hours before
-        if !isExisting {
-            let alarmDayBefore = EKAlarm(relativeOffset: -86400) // -24 hours
-            let alarmTwoHoursBefore = EKAlarm(relativeOffset: -7200) // -2 hours
-            event.alarms = [alarmDayBefore, alarmTwoHoursBefore]
+        // Alarms: accurately anchored to item.dueDate, ensuring all triggers are in the future
+        let now = Date()
+        var futureAlarms: [EKAlarm] = []
+
+        // 24 hours before due date: (dueDate - 86400) - (dueDate - 3600) = -82800 relative to startDate
+        let trigger24h = item.dueDate.addingTimeInterval(-86400)
+        if trigger24h > now {
+            futureAlarms.append(EKAlarm(relativeOffset: -82800))
         }
+
+        // 2 hours before due date: (dueDate - 7200) - (dueDate - 3600) = -3600 relative to startDate
+        let trigger2h = item.dueDate.addingTimeInterval(-7200)
+        if trigger2h > now {
+            futureAlarms.append(EKAlarm(relativeOffset: -3600))
+        }
+
+        // 30 minutes before due date: (dueDate - 1800) - (dueDate - 3600) = +1800 relative to startDate
+        let trigger30m = item.dueDate.addingTimeInterval(-1800)
+        if trigger30m > now {
+            futureAlarms.append(EKAlarm(relativeOffset: 1800))
+        }
+
+        // If imminent, alert 5 mins before if possible
+        if futureAlarms.isEmpty && item.dueDate > now {
+            let trigger5m = item.dueDate.addingTimeInterval(-300)
+            if trigger5m > now {
+                futureAlarms.append(EKAlarm(relativeOffset: 3300))
+            } else {
+                futureAlarms.append(EKAlarm(relativeOffset: 0))
+            }
+        }
+
+        event.alarms = futureAlarms
 
         do {
             try store.save(event, span: .thisEvent, commit: true)
             item.calendarEventID = event.eventIdentifier
+            AssignmentNotificationManager.shared.scheduleNotification(for: item)
             return event.eventIdentifier
         } catch {
             throw CalendarError.saveFailed(error.localizedDescription)
@@ -187,6 +215,8 @@ final class CalendarManager {
     // MARK: - Remove Event
     /// Removes the corresponding event from Apple Calendar if present.
     func removeEvent(for item: DeadlineItem) {
+        AssignmentNotificationManager.shared.cancelNotification(for: item)
+
         guard let eventID = item.calendarEventID,
               let event = store.event(withIdentifier: eventID) else {
             item.calendarEventID = nil

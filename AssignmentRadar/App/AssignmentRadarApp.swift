@@ -16,6 +16,7 @@ struct AssignmentRadarApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             DeadlineItem.self,
+            ContestItem.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

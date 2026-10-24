@@ -29,18 +29,66 @@ struct MainView: View {
     @State private var showQuietSyncNotice: Bool = false
     @State private var isSyncingCalendar: Bool = false
     @State private var calendarAlertMessage: String? = nil
+    @State private var showingCodingRadar: Bool = false
+    @AppStorage("hasSeenCodingRadarHint") private var hasSeenCodingRadarHint: Bool = false
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.backgroundColor(for: colorScheme)
-                    .ignoresSafeArea()
+        ZStack {
+            if showingCodingRadar {
+                CodingMainView(onReturn: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showingCodingRadar = false
+                    }
+                })
+                .transition(.opacity)
+            } else {
+                NavigationStack {
+                    ZStack {
+                        Theme.backgroundColor(for: colorScheme)
+                            .ignoresSafeArea()
 
-                if deadlines.isEmpty {
-                    emptyStateView
-                } else {
-                    RadarView()
-                }
+                        if deadlines.isEmpty {
+                            emptyStateView
+                        } else {
+                            RadarView()
+                        }
+
+                        // First use double-tap hint banner
+                        if !hasSeenCodingRadarHint {
+                            VStack {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "hand.tap")
+                                        .font(.caption2)
+                                        .foregroundStyle(Theme.primaryColor(for: colorScheme))
+                                    Text("Tip: try double-tapping the title")
+                                        .font(.caption2)
+                                        .foregroundStyle(Theme.textColor(for: colorScheme))
+                                    Button {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            hasSeenCodingRadarHint = true
+                                        }
+                                    } label: {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                            .padding(4)
+                                    }
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Theme.cardColor(for: colorScheme))
+                                .clipShape(Capsule())
+                                .shadow(
+                                    color: colorScheme == .dark ? Color.black.opacity(0.35) : Color.black.opacity(0.08),
+                                    radius: 8, x: 0, y: 2
+                                )
+                                .padding(.top, 8)
+
+                                Spacer()
+                            }
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .zIndex(20)
+                        }
 
                 // Quiet "Updated just now" banner
                 if showQuietSyncNotice {
@@ -116,9 +164,21 @@ struct MainView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .navigationTitle("Assignment Radar")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Assignment Radar")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(Theme.textColor(for: colorScheme))
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 2) {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                showingCodingRadar = true
+                                hasSeenCodingRadarHint = true
+                            }
+                        }
+                        .accessibilityLabel("Assignment Radar Title. Double tap to enter CodingRadar.")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     menuButton
                 }
@@ -167,6 +227,7 @@ struct MainView: View {
             }
             .onChange(of: deadlines) { _, newDeadlines in
                 WidgetDataStore.sync(from: newDeadlines)
+                AssignmentNotificationManager.shared.rescheduleAll(items: newDeadlines)
             }
             .onChange(of: deepLinkManager.shouldOpenImportSheet) { _, shouldOpen in
                 if shouldOpen {
@@ -202,7 +263,11 @@ struct MainView: View {
                 }
             }
             #endif
+                }
+                .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: showingCodingRadar)
         .appRoundedFont()
     }
 

@@ -201,6 +201,7 @@ struct RadarView: View {
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     item.isDone = true
+                    CalendarManager.shared.removeEvent(for: item)
                 }
             } label: {
                 Label("Done", systemImage: "checkmark.circle.fill")
