@@ -152,6 +152,7 @@ struct AddDeadlineSheet: View {
         )
 
         modelContext.insert(newDeadline)
+        AssignmentNotificationManager.shared.scheduleNotification(for: newDeadline)
 
         if syncToCalendar {
             Task {

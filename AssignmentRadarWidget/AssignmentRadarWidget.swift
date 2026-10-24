@@ -43,7 +43,9 @@ struct WidgetDeadlineItem: Codable, Identifiable, Sendable {
         let now = Date()
 
         if dueDate < now {
-            return "Overdue"
+            let formatter = DateFormatter()
+            formatter.dateFormat = "d MMM, yyyy, h:mm a"
+            return "Overdue (\(formatter.string(from: dueDate)))"
         }
         if calendar.isDateInToday(dueDate) {
             let formatter = DateFormatter()
@@ -56,13 +58,8 @@ struct WidgetDeadlineItem: Codable, Identifiable, Sendable {
             return "Tomorrow, \(formatter.string(from: dueDate))"
         }
 
-        let comps = calendar.dateComponents([.day], from: now, to: dueDate)
-        if let days = comps.day, days >= 2 && days <= 6 {
-            return "In \(days) days"
-        }
-
         let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM, h:mm a"
+        formatter.dateFormat = "d MMM, yyyy, h:mm a"
         return formatter.string(from: dueDate)
     }
 }

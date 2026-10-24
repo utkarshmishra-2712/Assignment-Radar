@@ -41,6 +41,8 @@ struct MainView: View {
     @State private var isSyncingCalendar: Bool = false
     @State private var calendarAlertMessage: String? = nil
     @State private var showingCodingRadar: Bool = false
+    @State private var showingAssignmentNotificationSheet: Bool = false
+    @State private var assignmentNotificationManager = AssignmentNotificationManager.shared
     @AppStorage("hasSeenCodingRadarHint") private var hasSeenCodingRadarHint: Bool = false
     @AppStorage("show_streak") private var showStreak: Bool = true
 
@@ -240,6 +242,9 @@ struct MainView: View {
             .sheet(isPresented: $showingAboutSheet) {
                 AboutSheetView()
             }
+            .sheet(isPresented: $showingAssignmentNotificationSheet) {
+                AssignmentNotificationSettingsSheet()
+            }
             .alert("Apple Calendar", isPresented: Binding(
                 get: { calendarAlertMessage != nil },
                 set: { if !$0 { calendarAlertMessage = nil } }
@@ -265,12 +270,14 @@ struct MainView: View {
                 }
                 CompletedDeadlinesStore.shared.syncExistingCompletedItems(from: modelContext)
                 WidgetDataStore.sync(from: activeDeadlines)
+                assignmentNotificationManager.rescheduleAll(items: activeDeadlines)
                 triggerAutoSyncIfNeeded()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
                     hasMoodleSession = MoodleAuthService.shared.hasActiveSession
                     hasSavedMoodleLink = KeychainStore.exists(key: KeychainStore.moodleCalendarUrlKey)
+                    assignmentNotificationManager.rescheduleAll(items: activeDeadlines)
                     triggerAutoSyncIfNeeded()
                 }
             }
@@ -315,6 +322,9 @@ struct MainView: View {
                 }
                 if CommandLine.arguments.contains("-showQuietNotice") {
                     showQuietSyncNotice = true
+                }
+                if CommandLine.arguments.contains("-openNotificationSettings") {
+                    showingAssignmentNotificationSheet = true
                 }
             }
             #endif
@@ -433,7 +443,20 @@ struct MainView: View {
                 .disabled(activeDeadlines.isEmpty || isSyncingCalendar)
             }
 
-            // Section 5: More
+            // Section 5: Reminders
+            Section("Reminders") {
+                Button {
+                    showingAssignmentNotificationSheet = true
+                } label: {
+                    if assignmentNotificationManager.isEnabled {
+                        Label("Reminders: \(assignmentNotificationManager.leadTime.shortLabel) before", systemImage: "bell.badge")
+                    } else {
+                        Label("Reminders: Off", systemImage: "bell.slash")
+                    }
+                }
+            }
+
+            // Section 6: More
             Section("More") {
                 Button {
                     showingProfileSheet = true

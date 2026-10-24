@@ -579,6 +579,7 @@ struct PhotoImportSheet: View {
             )
 
             modelContext.insert(item)
+            AssignmentNotificationManager.shared.scheduleNotification(for: item)
 
             if syncToAppleCalendar {
                 Task {

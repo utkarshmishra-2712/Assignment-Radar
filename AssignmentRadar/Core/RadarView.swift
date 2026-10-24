@@ -219,6 +219,7 @@ struct RadarView: View {
                     item.completedAt = Date()
                     CompletedDeadlinesStore.shared.markCompleted(id: item.id)
                     CalendarManager.shared.removeEvent(for: item)
+                    AssignmentNotificationManager.shared.cancelNotification(for: item)
                     try? modelContext.save()
                     WidgetDataStore.sync(from: allDeadlines)
                 }
@@ -241,6 +242,7 @@ struct RadarView: View {
             Button(role: .destructive) {
                 withAnimation {
                     CalendarManager.shared.removeEvent(for: item)
+                    AssignmentNotificationManager.shared.cancelNotification(for: item)
                     CompletedDeadlinesStore.shared.markIncomplete(id: item.id)
                     modelContext.delete(item)
                     try? modelContext.save()
@@ -285,6 +287,7 @@ struct RadarView: View {
                     item.isDone = false
                     item.completedAt = nil
                     CompletedDeadlinesStore.shared.markIncomplete(id: item.id)
+                    AssignmentNotificationManager.shared.scheduleNotification(for: item)
                     try? modelContext.save()
                     WidgetDataStore.sync(from: allDeadlines)
                 }
@@ -297,6 +300,7 @@ struct RadarView: View {
             Button(role: .destructive) {
                 withAnimation {
                     CalendarManager.shared.removeEvent(for: item)
+                    AssignmentNotificationManager.shared.cancelNotification(for: item)
                     CompletedDeadlinesStore.shared.markIncomplete(id: item.id)
                     modelContext.delete(item)
                     try? modelContext.save()

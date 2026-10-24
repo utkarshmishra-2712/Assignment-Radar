@@ -65,7 +65,8 @@ enum Urgency: Equatable, Comparable {
 
 // MARK: - Relative Due Label Formatter
 extension Date {
-    /// Formats the date into a friendly label like "Tomorrow, 11:00 AM", "Today, 5:00 PM", or "Oct 28, 2:00 PM".
+    /// Formats the date into a friendly label like "Tomorrow, 11:00 AM", "Today, 5:00 PM", or "28 Oct, 2026, 2:00 PM".
+    /// When not today or tomorrow, the year is explicitly displayed (date, year, deadline time).
     func dueLabel(relativeTo reference: Date = Date(), calendar: Calendar = .current) -> String {
         let timeFormatter = DateFormatter()
         timeFormatter.timeStyle = .short
@@ -84,23 +85,13 @@ extension Date {
             return "Yesterday, \(timeString)"
         }
 
-        if self < reference {
-            let shortDateFormatter = DateFormatter()
-            shortDateFormatter.dateFormat = "d MMM, h:mm a"
-            return "Overdue (\(shortDateFormatter.string(from: self)))"
-        }
-
-        // Within next 6 days show day of week (e.g. "Wednesday, 3:00 PM")
-        let startOfToday = calendar.startOfDay(for: reference)
-        if let sixDaysAhead = calendar.date(byAdding: .day, value: 6, to: startOfToday), self <= sixDaysAhead {
-            let dayFormatter = DateFormatter()
-            dayFormatter.dateFormat = "EEEE"
-            return "\(dayFormatter.string(from: self)), \(timeString)"
-        }
-
-        // Otherwise format as "28 Oct, 11:00 AM"
         let fullFormatter = DateFormatter()
-        fullFormatter.dateFormat = "d MMM, h:mm a"
+        fullFormatter.dateFormat = "d MMM, yyyy, h:mm a"
+
+        if self < reference {
+            return "Overdue (\(fullFormatter.string(from: self)))"
+        }
+
         return fullFormatter.string(from: self)
     }
 }

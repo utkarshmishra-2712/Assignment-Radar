@@ -3,88 +3,207 @@
 //  AssignmentRadar
 //
 //  Delivers native local device notifications for course assignments and deadlines.
-//  Ensures students receive timely alerts even if Apple Calendar notifications
-//  are disabled or silenced.
+//  Supports customizable warning threshold lead times (minimum 1.5h, increasing from there)
+//  and recurring notifications every 24 hours for overdue assignments.
 //
 
 import Foundation
 import UserNotifications
+import SwiftUI
+import Observation
 
+enum AssignmentLeadTimeOption: Int, CaseIterable, Identifiable {
+    case oneAndHalfHours = 90
+    case twoHours = 120
+    case threeHours = 180
+    case sixHours = 360
+    case twelveHours = 720
+    case twentyFourHours = 1440
+    case fortyEightHours = 2880
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .oneAndHalfHours: return "1.5 hours before"
+        case .twoHours: return "2 hours before"
+        case .threeHours: return "3 hours before"
+        case .sixHours: return "6 hours before"
+        case .twelveHours: return "12 hours before"
+        case .twentyFourHours: return "1 day (24 hrs) before"
+        case .fortyEightHours: return "2 days (48 hrs) before"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .oneAndHalfHours: return "1.5h"
+        case .twoHours: return "2h"
+        case .threeHours: return "3h"
+        case .sixHours: return "6h"
+        case .twelveHours: return "12h"
+        case .twentyFourHours: return "24h"
+        case .fortyEightHours: return "48h"
+        }
+    }
+
+    var seconds: TimeInterval {
+        TimeInterval(rawValue * 60)
+    }
+}
+
+@Observable
 @MainActor
 final class AssignmentNotificationManager {
     static let shared = AssignmentNotificationManager()
 
-    private init() {}
+    // Persistent storage keys
+    private static let enabledKey = "assignment_notifications_enabled"
+    private static let leadTimeKey = "assignment_notification_lead_time"
+    private static let overdueEnabledKey = "assignment_overdue_notifications_enabled"
+
+    var isEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
+        }
+    }
+
+    var leadTime: AssignmentLeadTimeOption {
+        didSet {
+            UserDefaults.standard.set(leadTime.rawValue, forKey: Self.leadTimeKey)
+        }
+    }
+
+    var isOverdueEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isOverdueEnabled, forKey: Self.overdueEnabledKey)
+        }
+    }
+
+    var authorizationStatus: UNAuthorizationStatus = .notDetermined
+
+    private init() {
+        if UserDefaults.standard.object(forKey: Self.enabledKey) != nil {
+            self.isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
+        } else {
+            self.isEnabled = true
+        }
+
+        let savedMinutes = UserDefaults.standard.integer(forKey: Self.leadTimeKey)
+        self.leadTime = AssignmentLeadTimeOption(rawValue: savedMinutes) ?? .oneAndHalfHours
+
+        if UserDefaults.standard.object(forKey: Self.overdueEnabledKey) != nil {
+            self.isOverdueEnabled = UserDefaults.standard.bool(forKey: Self.overdueEnabledKey)
+        } else {
+            self.isOverdueEnabled = true
+        }
+    }
+
+    func checkAuthorizationStatus() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        self.authorizationStatus = settings.authorizationStatus
+    }
 
     func requestAuthorization() async -> Bool {
         do {
-            return try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            await checkAuthorizationStatus()
+            return granted
         } catch {
+            await checkAuthorizationStatus()
             return false
         }
     }
 
-    /// Schedules native notifications for an assignment.
+    /// Schedules native notifications for an assignment (advance warning + 24-hr recurring overdue).
     func scheduleNotification(for item: DeadlineItem) {
-        let identifier = "assignment_radar_deadline_\(item.id)"
+        cancelNotification(for: item)
 
-        // If completed or past due, cancel any existing alert
-        guard !item.isDone, item.dueDate > Date() else {
-            cancelNotification(for: item)
-            return
-        }
+        guard isEnabled, !item.isDone else { return }
 
         let now = Date()
-        let diff = item.dueDate.timeIntervalSince(now)
-
-        // Select the most appropriate upcoming reminder window:
-        // 24 hours before, 2 hours before, or 30 minutes before
-        let leadSeconds: TimeInterval
-        let leadText: String
-
-        if diff > 86400 * 1.5 {
-            leadSeconds = 86400 // 24 hours before
-            leadText = "tomorrow"
-        } else if diff > 7200 * 1.5 {
-            leadSeconds = 7200  // 2 hours before
-            leadText = "in 2 hours"
-        } else if diff > 1800 {
-            leadSeconds = 1800  // 30 minutes before
-            leadText = "in 30 minutes"
-        } else {
-            // Imminent
-            leadSeconds = max(60, diff / 2)
-            leadText = "soon"
-        }
-
-        let triggerDate = item.dueDate.addingTimeInterval(-leadSeconds)
-        guard triggerDate > now else { return }
-
-        let content = UNMutableNotificationContent()
         let prefix = item.subject.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !prefix.isEmpty {
-            content.title = "[\(prefix)] Deadline Due \(leadText)"
+        let subjectTag = prefix.isEmpty ? "" : "[\(prefix)] "
+
+        // 1. Advance warning alert (if deadline is in the future)
+        if item.dueDate > now {
+            let triggerDate = item.dueDate.addingTimeInterval(-leadTime.seconds)
+            if triggerDate > now {
+                let content = UNMutableNotificationContent()
+                content.title = "\(subjectTag)Deadline Approaching"
+                let timeStr = item.dueDate.formatted(date: .omitted, time: .shortened)
+                content.body = "The deadline for \"\(item.title)\" is due in \(leadTime.label) (at \(timeStr))."
+                content.sound = .default
+                content.userInfo = ["itemId": item.id, "type": "leadTime"]
+
+                let comps = Calendar.current.dateComponents(
+                    [.year, .month, .day, .hour, .minute, .second],
+                    from: triggerDate
+                )
+                let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+                let request = UNNotificationRequest(
+                    identifier: "assignment_radar_deadline_\(item.id)",
+                    content: content,
+                    trigger: trigger
+                )
+                UNUserNotificationCenter.current().add(request)
+            }
+
+            // Also schedule initial alert when the deadline is hit
+            if isOverdueEnabled {
+                let dueContent = UNMutableNotificationContent()
+                dueContent.title = "⚠️ \(subjectTag)Deadline Hit"
+                dueContent.body = "\"\(item.title)\" is now due! Please submit your work."
+                dueContent.sound = .default
+                dueContent.userInfo = ["itemId": item.id, "type": "dueNow"]
+
+                let dueComps = Calendar.current.dateComponents(
+                    [.year, .month, .day, .hour, .minute, .second],
+                    from: item.dueDate
+                )
+                let dueTrigger = UNCalendarNotificationTrigger(dateMatching: dueComps, repeats: false)
+                let dueRequest = UNNotificationRequest(
+                    identifier: "assignment_radar_overdue_initial_\(item.id)",
+                    content: dueContent,
+                    trigger: dueTrigger
+                )
+                UNUserNotificationCenter.current().add(dueRequest)
+            }
         } else {
-            content.title = "Deadline Due \(leadText)"
+            // 2. Assignment is ALREADY overdue (item.dueDate <= now)
+            if isOverdueEnabled {
+                let overdueContent = UNMutableNotificationContent()
+                overdueContent.title = "⚠️ \(subjectTag)Overdue Assignment (Daily Reminder)"
+                overdueContent.body = "\"\(item.title)\" is overdue! It was due on \(item.dueDate.dueLabel()). Please submit it or mark it done."
+                overdueContent.sound = .default
+                overdueContent.userInfo = ["itemId": item.id, "type": "overdue24h"]
+
+                // Repeating trigger every 24 hours (86,400 seconds)
+                let repeatingTrigger = UNTimeIntervalNotificationTrigger(timeInterval: 86400, repeats: true)
+                let request = UNNotificationRequest(
+                    identifier: "assignment_radar_overdue_\(item.id)",
+                    content: overdueContent,
+                    trigger: repeatingTrigger
+                )
+                UNUserNotificationCenter.current().add(request)
+            }
         }
-        content.body = "\(item.title) is due at \(item.dueDate.formatted(date: .omitted, time: .shortened))."
-        content.sound = .default
-        content.userInfo = ["itemId": item.id]
-
-        let components = Calendar.current.dateComponents(
-            [.year, .month, .day, .hour, .minute, .second],
-            from: triggerDate
-        )
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-
-        UNUserNotificationCenter.current().add(request)
     }
 
-    /// Cancels scheduled notification when an assignment is completed or deleted.
+    /// Cancels scheduled notifications when an assignment is completed or deleted.
     func cancelNotification(for item: DeadlineItem) {
-        let identifier = "assignment_radar_deadline_\(item.id)"
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+        let identifiers = [
+            "assignment_radar_deadline_\(item.id)",
+            "assignment_radar_overdue_\(item.id)",
+            "assignment_radar_overdue_initial_\(item.id)"
+        ]
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+    }
+
+    /// Cancels all scheduled assignment notifications.
+    func cancelAllNotifications() {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 
     /// Reschedules notifications across all active assignments.
