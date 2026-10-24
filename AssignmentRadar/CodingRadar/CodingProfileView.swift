@@ -118,13 +118,8 @@ struct CodingProfileView: View {
         .environment(\.colorScheme, .dark)
         .task {
             #if DEBUG
-            if CommandLine.arguments.contains("-loadSampleCodingProfile") {
-                profile.displayName = "Preet Baranawal"
-                profile.leetcodeHandle = "Preet_Baranawal_108"
-                profile.codeforcesHandle = "preetbaranwal9129"
-                profile.atcoderHandle = "tidy_snake"
-                profile.codechefHandle = "tidy_snakes_42"
-                try? modelContext.save()
+            if CommandLine.arguments.contains("-loadSampleCodingProfile") || CommandLine.arguments.contains("-loadFullSampleProfile") {
+                loadSampleDataWithAllCards()
             }
             if CommandLine.arguments.contains("-openAnalysisTab") {
                 selectedTab = .analysis
@@ -581,6 +576,159 @@ struct CodingProfileView: View {
         quietNotices = notices
         isRefreshing = false
     }
+
+    #if DEBUG
+    private func loadSampleDataWithAllCards() {
+        profile.displayName = "Preet Baranawal"
+        profile.leetcodeHandle = "Preet_Baranawal_108"
+        profile.codeforcesHandle = "preetbaranwal9129"
+        profile.atcoderHandle = "tidy_snake"
+        profile.codechefHandle = "tidy_snakes_42"
+        try? modelContext.save()
+
+        // Run unit tests and log result
+        FeedbackEngineTests.runTests()
+
+        let now = Date().timeIntervalSince1970
+
+        // 12 weeks of daily activity
+        var lcActivity: [DailyActivityItem] = []
+        for d in 0..<84 {
+            let daySec = now - Double(d * 86400)
+            let count = (d % 7 == 3 || d % 7 == 6) ? 0 : ((d * 7) % 6 + 1)
+            lcActivity.append(DailyActivityItem(timestamp: daySec, count: count))
+        }
+
+        let lcSnap = PlatformSnapshot(
+            platform: .leetcode,
+            handle: "Preet_Baranawal_108",
+            rating: 1530,
+            maxRating: 1530,
+            rankTitle: "Top 25%",
+            solvedTotal: 378,
+            solvedEasy: 237,
+            solvedMedium: 127,
+            solvedHard: 14,
+            contestsCount: 5,
+            streak: 235,
+            totalActiveDays: 311,
+            ratingHistory: [
+                RatingPoint(timestamp: now - 60*86400, rating: 1480, contestName: "Weekly Contest 410", rank: 4200),
+                RatingPoint(timestamp: now - 45*86400, rating: 1500, contestName: "Weekly Contest 412", rank: 3500),
+                RatingPoint(timestamp: now - 30*86400, rating: 1530, contestName: "Weekly Contest 414", rank: 2800),
+                RatingPoint(timestamp: now - 15*86400, rating: 1515, contestName: "Weekly Contest 416", rank: 3100),
+                RatingPoint(timestamp: now - 7*86400, rating: 1530, contestName: "Weekly Contest 417", rank: 2750)
+            ],
+            dailyActivity: lcActivity,
+            topicCounts: [
+                TopicSolveCount(topicName: "Array", problemsSolved: 412),
+                TopicSolveCount(topicName: "Math", problemsSolved: 182),
+                TopicSolveCount(topicName: "Hash Table", problemsSolved: 116),
+                TopicSolveCount(topicName: "String", problemsSolved: 116),
+                TopicSolveCount(topicName: "Sorting", problemsSolved: 108),
+                TopicSolveCount(topicName: "Dynamic Programming", problemsSolved: 34),
+                TopicSolveCount(topicName: "Breadth-First Search", problemsSolved: 18),
+                TopicSolveCount(topicName: "Backtracking", problemsSolved: 12)
+            ],
+            difficultyBands: [
+                DifficultyBandItem(bandName: "Easy", count: 237),
+                DifficultyBandItem(bandName: "Medium", count: 127),
+                DifficultyBandItem(bandName: "Hard", count: 14)
+            ],
+            status: "connected"
+        )
+
+        let cfSnap = PlatformSnapshot(
+            platform: .codeforces,
+            handle: "preetbaranwal9129",
+            rating: 1420,
+            maxRating: 1450,
+            rankTitle: "Specialist",
+            solvedTotal: 165,
+            solvedEasy: 45,
+            solvedMedium: 72,
+            solvedHard: 48,
+            contestsCount: 4,
+            ratingHistory: [
+                RatingPoint(timestamp: now - 75*86400, rating: 1350, contestName: "Round 950 (Div. 3)", rank: 2100),
+                RatingPoint(timestamp: now - 50*86400, rating: 1410, contestName: "Round 954 (Div. 3)", rank: 1800),
+                RatingPoint(timestamp: now - 25*86400, rating: 1450, contestName: "Round 960 (Div. 2)", rank: 1400),
+                RatingPoint(timestamp: now - 8*86400, rating: 1420, contestName: "Round 965 (Div. 2)", rank: 1650)
+            ],
+            dailyActivity: [
+                DailyActivityItem(timestamp: now - 2*86400, count: 2),
+                DailyActivityItem(timestamp: now - 5*86400, count: 1)
+            ],
+            topicCounts: [
+                TopicSolveCount(topicName: "Implementation", problemsSolved: 90),
+                TopicSolveCount(topicName: "Math", problemsSolved: 65),
+                TopicSolveCount(topicName: "Greedy", problemsSolved: 48),
+                TopicSolveCount(topicName: "Dynamic Programming", problemsSolved: 28)
+            ],
+            difficultyBands: [
+                DifficultyBandItem(bandName: "< 1000", count: 45),
+                DifficultyBandItem(bandName: "1000–1399", count: 72),
+                DifficultyBandItem(bandName: "1400–1799", count: 41),
+                DifficultyBandItem(bandName: "1800+", count: 7)
+            ],
+            status: "connected"
+        )
+
+        let acSnap = PlatformSnapshot(
+            platform: .atcoder,
+            handle: "tidy_snake",
+            rating: 105,
+            maxRating: 105,
+            rankTitle: "Gray",
+            solvedTotal: 5,
+            contestsCount: 1,
+            ratingHistory: [
+                RatingPoint(timestamp: now - 20*86400, rating: 105, contestName: "AtCoder Beginner Contest 360", rank: 4800)
+            ],
+            status: "connected"
+        )
+
+        let ccSnap = PlatformSnapshot(
+            platform: .codechef,
+            handle: "tidy_snakes_42",
+            rating: 1355,
+            rankTitle: "1★",
+            solvedTotal: 37,
+            contestsCount: 2,
+            ratingHistory: [
+                RatingPoint(timestamp: now - 40*86400, rating: 1320, contestName: "Starters 140", rank: 1200),
+                RatingPoint(timestamp: now - 12*86400, rating: 1355, contestName: "Starters 145", rank: 950)
+            ],
+            status: "connected"
+        )
+
+        for snap in [lcSnap, cfSnap, acSnap, ccSnap] {
+            let targetId = snap.id
+            let descriptor = FetchDescriptor<PlatformSnapshot>(predicate: #Predicate { $0.id == targetId })
+            if let existing = try? modelContext.fetch(descriptor).first {
+                modelContext.delete(existing)
+            }
+            modelContext.insert(snap)
+        }
+
+        // Add a sample upcoming contest if none exist, so contest recommendation can be verified
+        var contestDesc = FetchDescriptor<ContestItem>()
+        contestDesc.fetchLimit = 1
+        if (try? modelContext.fetch(contestDesc).first) == nil {
+            let sampleContest = ContestItem(
+                id: "leetcode_weekly_421",
+                platform: "LeetCode",
+                name: "Weekly Contest 421",
+                startDate: Date().addingTimeInterval(3 * 86400),
+                durationSeconds: 5400,
+                url: "https://leetcode.com/contest/weekly-contest-421"
+            )
+            modelContext.insert(sampleContest)
+        }
+
+        try? modelContext.save()
+    }
+    #endif
 }
 
 #Preview {

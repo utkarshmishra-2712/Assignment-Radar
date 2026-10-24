@@ -14,9 +14,12 @@
 
 import SwiftUI
 import Charts
+import SwiftData
 
 struct CodingAnalysisView: View {
     let snapshots: [PlatformSnapshot]
+
+    @Query(sort: \ContestItem.startDate) private var allContests: [ContestItem]
 
     @State private var selectedRatingPlatform: CodingPlatform? = nil // nil = All platforms
 
@@ -89,10 +92,23 @@ struct CodingAnalysisView: View {
         return max(maxStreak, currentStreak)
     }
 
+    private var feedback: FeedbackResult {
+        FeedbackEngine.evaluate(input: FeedbackInput(
+            snapshots: connectedSnapshots,
+            upcomingContests: allContests,
+            referenceDate: Date()
+        ))
+    }
+
     // MARK: - Body
     var body: some View {
         ScrollViewReader { proxy in
             VStack(alignment: .leading, spacing: 18) {
+                if hasTargetData {
+                    yourTargetCard
+                        .id("yourTarget")
+                }
+
                 if hasOverviewData {
                     overviewCard
                         .id("overview")
@@ -123,7 +139,7 @@ struct CodingAnalysisView: View {
                         .id("contestSummary")
                 }
 
-                if !hasOverviewData && !hasRatingTrendData && !hasDifficultyData && !hasTopicMapData && !hasHeatmapData && !hasContestSummaryData {
+                if !hasTargetData && !hasOverviewData && !hasRatingTrendData && !hasDifficultyData && !hasTopicMapData && !hasHeatmapData && !hasContestSummaryData {
                     emptyStateCard
                 }
             }
@@ -149,6 +165,9 @@ struct CodingAnalysisView: View {
     }
 
     // MARK: - Visibility Checks (Never show empty cards)
+    private var hasTargetData: Bool {
+        !connectedSnapshots.isEmpty
+    }
     private var hasOverviewData: Bool {
         totalSolvedCount > 0 || activeDaysLast30 > 0 || currentStreak > 0
     }
@@ -177,6 +196,114 @@ struct CodingAnalysisView: View {
 
     private var hasContestSummaryData: Bool {
         connectedSnapshots.contains(where: { $0.platform == .codeforces || $0.platform == .leetcode || $0.platform == .atcoder || $0.platform == .codechef })
+    }
+
+    // MARK: - Card 0: Your Target
+    private var yourTargetCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "target")
+                    .font(.system(size: 14))
+                    .foregroundStyle(CodeTheme.primary)
+                Text("// Your Target")
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundStyle(CodeTheme.text)
+                Spacer()
+                Text("\(feedback.dailyTarget)/day · \(feedback.activeDaysPerWeek)d/wk")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(CodeTheme.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(CodeTheme.primary.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+
+            // Progress Section: Small Ring + Details
+            HStack(spacing: 14) {
+                let progress = feedback.weeklyTarget > 0
+                    ? CGFloat(feedback.solvedThisWeek) / CGFloat(feedback.weeklyTarget)
+                    : 0.0
+
+                ZStack {
+                    Circle()
+                        .stroke(CodeTheme.border, lineWidth: 4.5)
+                        .frame(width: 46, height: 46)
+
+                    Circle()
+                        .trim(from: 0, to: min(1.0, progress))
+                        .stroke(
+                            CodeTheme.primary,
+                            style: StrokeStyle(lineWidth: 4.5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 46, height: 46)
+
+                    VStack(spacing: 0) {
+                        Text("\(feedback.solvedThisWeek)")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundStyle(CodeTheme.primary)
+                        Text("/\(feedback.weeklyTarget)")
+                            .font(.system(size: 8, weight: .medium, design: .monospaced))
+                            .foregroundStyle(CodeTheme.secondaryText)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Weekly progress: \(feedback.solvedThisWeek) of \(feedback.weeklyTarget) problems solved.")
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("WEEKLY PROGRESS")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(CodeTheme.secondaryText)
+
+                    Text("\(feedback.solvedThisWeek) of \(feedback.weeklyTarget) problems solved")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(CodeTheme.text)
+
+                    Text(feedback.isInactiveBreak ? "Easy restart: 1 problem today" :
+                         "\(feedback.dailyTarget) problem\(feedback.dailyTarget == 1 ? "" : "s")/day · \(7 - feedback.activeDaysPerWeek) rest day\(7 - feedback.activeDaysPerWeek == 1 ? "" : "s")")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(CodeTheme.secondaryText)
+                }
+
+                Spacer()
+            }
+            .padding(10)
+            .background(CodeTheme.card.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(CodeTheme.border, lineWidth: 0.5)
+            )
+
+            // 2 to 4 Short, Friendly Sentences
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(feedback.feedbackSentences, id: \.self) { sentence in
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(CodeTheme.primary)
+                        Text(sentence)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(CodeTheme.text)
+                            .lineSpacing(2)
+                    }
+                }
+            }
+
+            // Secondary Disclaimer Text
+            HStack(spacing: 5) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 9))
+                Text(feedback.disclaimerText)
+                    .font(.system(size: 10, design: .monospaced))
+                    .lineLimit(2)
+            }
+            .foregroundStyle(CodeTheme.secondaryText)
+            .padding(.top, 2)
+        }
+        .padding(16)
+        .codeCardStyle()
     }
 
     // MARK: - Card 1: Overview
