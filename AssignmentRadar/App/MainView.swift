@@ -71,6 +71,7 @@ struct MainView: View {
                                         Image(systemName: "xmark")
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+
                                             .padding(4)
                                     }
                                 }
@@ -215,6 +216,7 @@ struct MainView: View {
             .onAppear {
                 hasSavedMoodleLink = KeychainStore.exists(key: KeychainStore.moodleCalendarUrlKey)
                 hasMoodleSession = MoodleAuthService.shared.hasActiveSession
+                CompletedDeadlinesStore.shared.syncExistingCompletedItems(from: modelContext)
                 WidgetDataStore.sync(from: deadlines)
                 triggerAutoSyncIfNeeded()
             }
@@ -502,7 +504,17 @@ struct MainView: View {
         let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
 
         for newItem in newItems {
+            let isMarkedDone = newItem.isDone || CompletedDeadlinesStore.shared.isCompleted(id: newItem.id)
+            if isMarkedDone {
+                newItem.isDone = true
+            }
+
             if let existing = existingMap[newItem.id] {
+                if existing.isDone || isMarkedDone {
+                    existing.isDone = true
+                    CompletedDeadlinesStore.shared.markCompleted(id: existing.id)
+                }
+
                 let shouldUpdate: Bool
                 if let newMod = newItem.lastModified, let existingMod = existing.lastModified {
                     shouldUpdate = newMod > existingMod

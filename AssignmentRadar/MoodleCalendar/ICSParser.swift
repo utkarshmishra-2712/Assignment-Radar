@@ -123,6 +123,7 @@ enum ICSParser {
             }
         }
 
+        let isCompleted = CompletedDeadlinesStore.shared.isCompleted(id: rawUID)
         return DeadlineItem(
             id: rawUID,
             title: cleanTitle,
@@ -130,7 +131,7 @@ enum ICSParser {
             dueDate: dueDate,
             source: "moodle",
             link: assignmentLink,
-            isDone: false,
+            isDone: isCompleted,
             lastModified: lastModifiedDate
         )
     }

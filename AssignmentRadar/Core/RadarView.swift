@@ -112,6 +112,9 @@ struct RadarView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
+        .onAppear {
+            CompletedDeadlinesStore.shared.syncExistingCompletedItems(from: modelContext)
+        }
     }
 
     // MARK: - Section Header
@@ -201,7 +204,10 @@ struct RadarView: View {
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     item.isDone = true
+                    CompletedDeadlinesStore.shared.markCompleted(id: item.id)
                     CalendarManager.shared.removeEvent(for: item)
+                    try? modelContext.save()
+                    WidgetDataStore.sync(from: allDeadlines)
                 }
             } label: {
                 Label("Done", systemImage: "checkmark.circle.fill")
@@ -222,7 +228,10 @@ struct RadarView: View {
             Button(role: .destructive) {
                 withAnimation {
                     CalendarManager.shared.removeEvent(for: item)
+                    CompletedDeadlinesStore.shared.markIncomplete(id: item.id)
                     modelContext.delete(item)
+                    try? modelContext.save()
+                    WidgetDataStore.sync(from: allDeadlines)
                 }
             } label: {
                 Label("Delete", systemImage: "trash")
@@ -261,6 +270,9 @@ struct RadarView: View {
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     item.isDone = false
+                    CompletedDeadlinesStore.shared.markIncomplete(id: item.id)
+                    try? modelContext.save()
+                    WidgetDataStore.sync(from: allDeadlines)
                 }
             } label: {
                 Label("Undo", systemImage: "arrow.uturn.backward.circle.fill")
@@ -271,7 +283,10 @@ struct RadarView: View {
             Button(role: .destructive) {
                 withAnimation {
                     CalendarManager.shared.removeEvent(for: item)
+                    CompletedDeadlinesStore.shared.markIncomplete(id: item.id)
                     modelContext.delete(item)
+                    try? modelContext.save()
+                    WidgetDataStore.sync(from: allDeadlines)
                 }
             } label: {
                 Label("Delete", systemImage: "trash")

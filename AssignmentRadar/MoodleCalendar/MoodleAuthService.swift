@@ -311,6 +311,7 @@ final class MoodleAuthService {
 
                 let eventUID = "\(event.id)@\(hostAndPath)"
                 let linkURL: URL? = event.url != nil ? URL(string: event.url!) : nil
+                let isCompleted = CompletedDeadlinesStore.shared.isCompleted(id: eventUID)
 
                 return DeadlineItem(
                     id: eventUID,
@@ -319,6 +320,7 @@ final class MoodleAuthService {
                     dueDate: dueDate,
                     source: "moodle",
                     link: linkURL,
+                    isDone: isCompleted,
                     lastModified: Date()
                 )
             }
@@ -408,7 +410,17 @@ final class MoodleAuthService {
         let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
 
         for newItem in newItems {
+            let isMarkedDone = newItem.isDone || CompletedDeadlinesStore.shared.isCompleted(id: newItem.id)
+            if isMarkedDone {
+                newItem.isDone = true
+            }
+
             if let existing = existingMap[newItem.id] {
+                if existing.isDone || isMarkedDone {
+                    existing.isDone = true
+                    CompletedDeadlinesStore.shared.markCompleted(id: existing.id)
+                }
+
                 let shouldUpdate: Bool
                 if let newMod = newItem.lastModified, let existingMod = existing.lastModified {
                     shouldUpdate = newMod > existingMod
@@ -438,10 +450,12 @@ final class MoodleAuthService {
     /// Optionally flushes all previous account Moodle deadlines from the database.
     @MainActor
     func signOut(modelContext: ModelContext? = nil) {
-        KeychainStore.clearMoodleSession()
+        let activeUsername = KeychainStore.read(key: KeychainStore.moodleUsernameKey)
         if let context = modelContext {
+            CompletedDeadlinesStore.shared.syncExistingCompletedItems(from: context, account: activeUsername)
             flushMoodleDeadlines(in: context)
         }
+        KeychainStore.clearMoodleSession()
     }
 
     // MARK: - Flush Moodle Deadlines

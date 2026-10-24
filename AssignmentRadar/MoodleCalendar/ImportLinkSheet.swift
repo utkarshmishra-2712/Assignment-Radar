@@ -320,7 +320,17 @@ struct ImportLinkSheet: View {
         let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
 
         for newItem in newItems {
+            let isMarkedDone = newItem.isDone || CompletedDeadlinesStore.shared.isCompleted(id: newItem.id)
+            if isMarkedDone {
+                newItem.isDone = true
+            }
+
             if let existing = existingMap[newItem.id] {
+                if existing.isDone || isMarkedDone {
+                    existing.isDone = true
+                    CompletedDeadlinesStore.shared.markCompleted(id: existing.id)
+                }
+
                 let shouldUpdate: Bool
                 if let newMod = newItem.lastModified, let existingMod = existing.lastModified {
                     shouldUpdate = newMod > existingMod
