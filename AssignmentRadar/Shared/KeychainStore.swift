@@ -18,8 +18,6 @@ enum KeychainStore {
     static let moodleUsernameKey = "moodle_username"
     static let moodleSiteNameKey = "moodle_site_name"
     static let moodleLastSyncTimestampKey = "moodle_last_sync_timestamp"
-    static let geminiApiKey = "gemini_api_key"
-    static let geminiModelKey = "gemini_model_name"
 
     /// Clears all Moodle authentication tokens, profile info, and saved calendar links from Keychain.
     static func clearMoodleSession() {

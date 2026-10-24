@@ -26,11 +26,6 @@ struct PhotoImportSheet: View {
     @State private var rawTextLines: [String] = []
     @State private var showRawText: Bool = false
     @State private var syncToAppleCalendar: Bool = true
-    @State private var geminiApiKey: String = ""
-    @State private var apiKeyInput: String = ""
-    @State private var selectedModel: String = "gemini-3.8-flash"
-    @State private var showApiKeyEditor: Bool = false
-    @State private var extractionSource: String = "Vision OCR"
     @State private var processingTitle: String = "Scanning Image..."
     @State private var processingSubtitle: String = "Recognizing text and extracting assignment dates"
 
@@ -49,10 +44,7 @@ struct PhotoImportSheet: View {
                         // 1. Photo Selection Card
                         photoSelectionCard
 
-                        // 2. Gemini AI Extraction Key Card
-                        geminiApiKeyCard
-
-                        // 3. OCR / AI Scanning Indicator
+                        // 2. OCR Scanning Indicator
                         if isProcessing {
                             processingCard
                         }
@@ -99,7 +91,6 @@ struct PhotoImportSheet: View {
                 }
             }
             .onAppear {
-                loadSavedApiKey()
                 #if DEBUG
                 if CommandLine.arguments.contains("-loadSampleSyllabus") {
                     let sample = SamplePhotoProvider.makeSampleSyllabusImage()
@@ -197,211 +188,11 @@ struct PhotoImportSheet: View {
         .appCardStyle()
     }
 
-    // MARK: - Gemini AI Key Card
-    private var geminiApiKeyCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if !geminiApiKey.isEmpty && !showApiKeyEditor {
-                // Key active summary
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.headline)
-                        .foregroundStyle(.purple)
-
-                    Text("Gemini AI Extraction")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Theme.textColor(for: colorScheme))
-
-                    Spacer()
-
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 7, height: 7)
-                        Text("Active")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.green)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.green.opacity(0.12))
-                    .clipShape(Capsule())
-                }
-
-                Text("Date sheets and syllabi will be parsed using \(selectedModel.isEmpty ? "Gemini AI" : selectedModel) for high-accuracy date, subject, and course code extraction.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineSpacing(2)
-
-                HStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "cpu")
-                            .font(.system(size: 10))
-                        Text(selectedModel.isEmpty ? "gemini-3.8-flash" : selectedModel)
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                    }
-                    .foregroundStyle(.purple)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.purple.opacity(0.12))
-                    .clipShape(Capsule())
-
-                    Spacer()
-
-                    Button {
-                        apiKeyInput = geminiApiKey
-                        showApiKeyEditor = true
-                    } label: {
-                        Label("Change Key / Model", systemImage: "key.fill")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                    .tint(.purple)
-
-                    Button(role: .destructive) {
-                        removeApiKey()
-                    } label: {
-                        Text("Remove")
-                            .font(.caption)
-                            .foregroundStyle(.red.opacity(0.8))
-                    }
-                }
-            } else {
-                // Key entry form
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.headline)
-                        .foregroundStyle(.purple)
-
-                    Text("Google Gemini AI Extraction")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Theme.textColor(for: colorScheme))
-
-                    Spacer()
-
-                    if !geminiApiKey.isEmpty {
-                        Button("Cancel") {
-                            showApiKeyEditor = false
-                        }
-                        .font(.caption)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    } else {
-                        Text("Recommended")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.purple)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color.purple.opacity(0.12))
-                            .clipShape(Capsule())
-                    }
-                }
-
-                Text("Enter your Google Gemini API key to extract complex dates, multi-column tables, and subject codes with state-of-the-art accuracy.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineSpacing(2)
-
-                HStack(spacing: 8) {
-                    SecureField("Paste Gemini API Key", text: $apiKeyInput)
-                        .font(.subheadline)
-                        .textFieldStyle(.plain)
-                        .padding(10)
-                        .background(Theme.backgroundColor(for: colorScheme))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                        )
-
-                    Button {
-                        if let paste = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !paste.isEmpty {
-                            apiKeyInput = paste
-                        }
-                    } label: {
-                        Image(systemName: "doc.on.clipboard")
-                            .font(.subheadline)
-                            .padding(10)
-                            .background(Theme.backgroundColor(for: colorScheme))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .tint(Theme.secondaryTextColor(for: colorScheme))
-
-                    Button("Save") {
-                        saveApiKey()
-                        if let img = selectedImage {
-                            Task { await processImage(img) }
-                        }
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.purple)
-                    .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-
-                // Model Selection Row
-                HStack(spacing: 8) {
-                    Text("Model:")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                    TextField("e.g. gemini-3.8-flash", text: $selectedModel)
-                        .font(.caption)
-                        .textFieldStyle(.plain)
-                        .padding(7)
-                        .background(Theme.backgroundColor(for: colorScheme))
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                        )
-
-                    Menu {
-                        Button("gemini-3.8-flash (Recommended)") { selectedModel = "gemini-3.8-flash" }
-                        Button("gemini-2.0-flash") { selectedModel = "gemini-2.0-flash" }
-                        Button("gemini-2.5-flash") { selectedModel = "gemini-2.5-flash" }
-                        Button("gemini-1.5-flash") { selectedModel = "gemini-1.5-flash" }
-                        Button("Auto-Detect from Key") { selectedModel = "auto" }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text("Presets")
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.system(size: 9))
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 7)
-                        .background(Theme.backgroundColor(for: colorScheme))
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    }
-                    .tint(.purple)
-                }
-
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.shield.fill")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    Text("Stored securely in iOS Keychain. Never hardcoded or shared.")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-        }
-        .padding(Theme.cardPadding)
-        .appCardStyle()
-    }
-
     // MARK: - Processing Card
     private var processingCard: some View {
         HStack(spacing: 14) {
             ProgressView()
-                .tint(extractionSource == "Gemini AI" || !geminiApiKey.isEmpty ? .purple : Theme.primaryColor(for: colorScheme))
+                .tint(Theme.primaryColor(for: colorScheme))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(processingTitle)
@@ -483,16 +274,16 @@ struct PhotoImportSheet: View {
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
 
                 HStack(spacing: 4) {
-                    Image(systemName: extractionSource == "Gemini AI" ? "sparkles" : "eye.fill")
+                    Image(systemName: "eye.fill")
                         .font(.system(size: 9))
-                    Text(extractionSource)
+                    Text("Vision OCR")
                         .font(.caption2)
                         .fontWeight(.bold)
                 }
-                .foregroundStyle(extractionSource == "Gemini AI" ? .purple : Theme.primaryColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryColor(for: colorScheme))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background((extractionSource == "Gemini AI" ? Color.purple : Theme.primaryColor(for: colorScheme)).opacity(0.12))
+                .background(Theme.primaryColor(for: colorScheme).opacity(0.12))
                 .clipShape(Capsule())
 
                 Spacer()
@@ -692,38 +483,9 @@ struct PhotoImportSheet: View {
     private func processImage(_ image: UIImage) async {
         isProcessing = true
         errorMessage = nil
-
-        let activeKey = geminiApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !activeKey.isEmpty {
-            let modelLabel = selectedModel.isEmpty ? "gemini-3.8-flash" : selectedModel
-            processingTitle = "Analyzing with \(modelLabel)..."
-            processingSubtitle = "Extracting dates, subjects, and course codes"
-            do {
-                let drafts = try await GeminiExtractor.extractDeadlines(
-                    from: image,
-                    apiKey: activeKey,
-                    preferredModel: selectedModel
-                )
-                detectedDrafts = drafts
-                extractionSource = "Gemini AI"
-
-                if drafts.isEmpty {
-                    errorMessage = "Gemini AI analyzed the image but found no deadline dates. You can add them manually or tap '+' on any recognized line below."
-                }
-                // Also recognize text blocks in background for raw text inspector
-                if let blocks = try? await DeadlineOCRParser.recognizeTextBlocks(from: image) {
-                    rawTextLines = blocks.map { $0.text }
-                }
-            } catch {
-                errorMessage = "Gemini AI: \(error.localizedDescription)\n\nRunning on-device Vision OCR fallback..."
-                await runOnDeviceOCR(image: image)
-            }
-        } else {
-            processingTitle = "Scanning with Vision OCR..."
-            processingSubtitle = "Extracting text and dates on-device"
-            await runOnDeviceOCR(image: image)
-        }
-
+        processingTitle = "Scanning with Vision OCR..."
+        processingSubtitle = "Extracting text and dates on-device"
+        await runOnDeviceOCR(image: image)
         isProcessing = false
     }
 
@@ -733,47 +495,13 @@ struct PhotoImportSheet: View {
             rawTextLines = blocks.map { $0.text }
             let drafts = DeadlineOCRParser.extractDeadlines(from: blocks)
             detectedDrafts = drafts
-            extractionSource = "Vision OCR"
 
             if drafts.isEmpty {
-                errorMessage = "No clear deadline dates could be extracted automatically. You can enter a Gemini API key above for AI extraction, or add deadlines manually."
+                errorMessage = "No clear deadline dates could be extracted automatically. You can add deadlines manually or tap any recognized line below."
             }
         } catch {
             errorMessage = "Vision OCR failed: \(error.localizedDescription)"
         }
-    }
-
-    private func loadSavedApiKey() {
-        if let key = KeychainStore.read(key: KeychainStore.geminiApiKey), !key.isEmpty {
-            geminiApiKey = key
-            apiKeyInput = key
-        }
-        if let model = KeychainStore.read(key: KeychainStore.geminiModelKey), !model.isEmpty {
-            selectedModel = model
-        } else {
-            selectedModel = "gemini-3.8-flash"
-        }
-    }
-
-    private func saveApiKey() {
-        let cleanKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanKey.isEmpty else { return }
-        KeychainStore.save(key: KeychainStore.geminiApiKey, value: cleanKey)
-        let cleanModel = selectedModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        let modelToSave = cleanModel.isEmpty ? "gemini-3.8-flash" : cleanModel
-        KeychainStore.save(key: KeychainStore.geminiModelKey, value: modelToSave)
-        geminiApiKey = cleanKey
-        selectedModel = modelToSave
-        showApiKeyEditor = false
-    }
-
-    private func removeApiKey() {
-        KeychainStore.delete(key: KeychainStore.geminiApiKey)
-        KeychainStore.delete(key: KeychainStore.geminiModelKey)
-        geminiApiKey = ""
-        apiKeyInput = ""
-        selectedModel = "gemini-3.8-flash"
-        showApiKeyEditor = false
     }
 
     // MARK: - Manual & Quick Add Helpers
