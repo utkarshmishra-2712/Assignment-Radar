@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Outer Radar Ring (#2D6F6B) -->
+  <circle cx="60" cy="60" r="52" fill="none" stroke="#2D6F6B" stroke-width="2.5" stroke-opacity="0.35" />
+  
+  <!-- Middle Radar Ring (#2D6F6B) -->
+  <circle cx="60" cy="60" r="36" fill="none" stroke="#2D6F6B" stroke-width="2.5" stroke-opacity="0.6" />
+  
+  <!-- Inner Radar Ring (#2D6F6B) -->
+  <circle cx="60" cy="60" r="20" fill="none" stroke="#2D6F6B" stroke-width="2.5" stroke-opacity="0.85" />
+  
+  <!-- Subtle Crosshairs -->
+  <line x1="60" y1="8" x2="60" y2="112" stroke="#2D6F6B" stroke-width="1.5" stroke-opacity="0.25" stroke-dasharray="3,3" />
+  <line x1="8" y1="60" x2="112" y2="60" stroke="#2D6F6B" stroke-width="1.5" stroke-opacity="0.25" stroke-dasharray="3,3" />
+  
+  <!-- Subtle Radar Sweep Arc -->
+  <path d="M 60 60 L 96.7 34.6 A 44 44 0 0 0 60 16 Z" fill="#2D6F6B" fill-opacity="0.1" />
+
+  <!-- Amber Blip (#F2B84B) -->
+  <circle cx="85.5" cy="34.5" r="4.5" fill="#F2B84B" />
+
+  <!-- Green Blip (#5FB49C) -->
+  <circle cx="28" cy="80" r="4.5" fill="#5FB49C" />
+
+  <!-- Coral Centre Dot (#FF6B4A) -->
+  <circle cx="60" cy="60" r="6" fill="#FF6B4A" />
+</svg>

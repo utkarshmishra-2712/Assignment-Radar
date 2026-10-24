@@ -28,7 +28,7 @@ struct AssignmentRadarApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainView()
+            RootView()
                 .environmentObject(themeManager)
                 .preferredColorScheme(themeManager.currentTheme.colorScheme)
                 .appRoundedFont()

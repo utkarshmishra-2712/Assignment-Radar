@@ -28,7 +28,6 @@ struct MainView: View {
     @State private var isRefreshingMoodle: Bool = false
     @State private var showQuietSyncNotice: Bool = false
     @State private var isSyncingCalendar: Bool = false
-    @State private var parserTestAlertMessage: String? = nil
     @State private var calendarAlertMessage: String? = nil
 
     var body: some View {
@@ -144,14 +143,6 @@ struct MainView: View {
             }
             .sheet(isPresented: $showingAboutSheet) {
                 AboutSheetView()
-            }
-            .alert("ICS Parser Test", isPresented: Binding(
-                get: { parserTestAlertMessage != nil },
-                set: { if !$0 { parserTestAlertMessage = nil } }
-            )) {
-                Button("OK", role: .cancel) { parserTestAlertMessage = nil }
-            } message: {
-                Text(parserTestAlertMessage ?? "")
             }
             .alert("Apple Calendar", isPresented: Binding(
                 get: { calendarAlertMessage != nil },
@@ -346,31 +337,6 @@ struct MainView: View {
                 }
             }
 
-            #if DEBUG
-            // Section 6: Debug sample data loader
-            Section("Debug") {
-                Button {
-                    let testResult = ICSParserTests.runTests()
-                    parserTestAlertMessage = testResult.message
-                } label: {
-                    Label("Run ICS parser test", systemImage: "checkmark.seal")
-                }
-
-                Button {
-                    loadSampleData()
-                } label: {
-                    Label("Load sample data", systemImage: "sparkles")
-                }
-
-                if !deadlines.isEmpty {
-                    Button(role: .destructive) {
-                        clearAllDeadlines()
-                    } label: {
-                        Label("Clear all deadlines", systemImage: "trash")
-                    }
-                }
-            }
-            #endif
         } label: {
             Image(systemName: "ellipsis.circle")
                 .font(.system(size: 20, weight: .medium))
